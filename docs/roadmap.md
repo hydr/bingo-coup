@@ -126,6 +126,15 @@ Drei Bestandteile, alle statisch:
 Gestaltung: festlich und warm, Serifenschrift, Creme mit Gold-Akzent, großzügige
 Abstände. Gilt für Website und gedruckte Karten gleichermaßen.
 
+## Veröffentlicht
+
+Live unter **https://hydr.github.io/bingo-coup/**, per GitHub Pages aus
+`.github/workflows/ci.yml`. Deployt wird bei jedem Push auf `master`, aber erst
+nachdem Typprüfung, die 91 Unit-Tests und die 17 Playwright-Tests grün sind.
+
+Steht später eine eigene Domain, wird sie in den Repo-Einstellungen als
+Custom Domain eingetragen; am Aufbau ändert das nichts.
+
 ## Phase 4 — Publikation
 
 Siehe [publikation.md](publikation.md).
@@ -136,7 +145,6 @@ Siehe [publikation.md](publikation.md).
   und die Ziehungsapp zeigt den Produktnamen nirgends.
 - Domain sichern: `bingocoup.de` und `coupbingo.com` sahen im DNS-Check frei
   aus. **Das Markenregister ist nicht geprüft** — siehe publikation.md.
-- Hosting: GitHub Pages, Netlify oder Vercel
 - Kartengröße 3×3 für Kinder ist als Regelsatz `KIDS_3X3` vorhanden und in der
   Oberfläche wählbar; ein eigenes Design dafür fehlt noch.
 - Wer produziert das erste Video? Braucht einen echten Anlass.

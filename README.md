@@ -1,5 +1,7 @@
 # Bingo Coup
 
+**[hydr.github.io/bingo-coup](https://hydr.github.io/bingo-coup/)**
+
 Bingo, bei dem **alle Gäste gleichzeitig gewinnen**.
 
 Das Spiel läuft für alle sichtbar normal ab: echte Karten, ein Moderator, der
@@ -21,6 +23,9 @@ Vollständig benutzbar: Generator, Druckausgabe und Ziehungsapp für den Beamer.
 Was noch offen ist, steht in [docs/roadmap.md](docs/roadmap.md).
 
 ## Ausprobieren
+
+Die [Website](https://hydr.github.io/bingo-coup/) läuft komplett im Browser —
+ohne Anmeldung, ohne Server. Lokal:
 
 ```bash
 npm install

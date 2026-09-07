@@ -48,9 +48,12 @@ wissen, damit die Terminal-Skripte in `scripts/` weiter funktionieren.
 
 ### Zwei Dinge, die man wissen muss
 
-**Eine Zelle trägt ein `Item`, keine Zahl.** Dadurch teilen Zahlen-Bingo und
-Begriffe-Bingo dieselbe Logik. Die Gewinnlogik arbeitet ausschließlich auf
-Positionen und Ziehungsindizes — sie darf nie auf `label` schauen.
+**Eine Zelle trägt ein `Item`, keine Zahl.** Die Gewinnlogik arbeitet
+ausschließlich auf Positionen und Ziehungsindizes und darf nie auf `label`
+schauen. Das trennt Darstellung von Logik und hält den Kern für andere
+Regelsätze offen. Beschriftungen frei zu setzen ist damit technisch möglich
+(`generatePlan({ items })`), ist aber **kein Produktziel** — die Oberfläche
+kennt nur Zahlen-Bingo.
 
 **`buildCard` baut in drei Schritten**: Gewinnlinie mit früh gezogenen Elementen
 füllen, dann für jedes übrige Feld entscheiden „früh oder spät" (`Slot`-Maske),

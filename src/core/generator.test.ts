@@ -203,7 +203,9 @@ describe('Varianten', () => {
     }
   })
 
-  it('Begriffe-Bingo verhaelt sich wie Zahlen-Bingo', () => {
+  it('eigene Beschriftungen verhalten sich wie Zahlen', () => {
+    // Die Gewinnlogik darf nie auf `label` schauen. Kein Produktfeature,
+    // sondern die Zusicherung, dass Darstellung und Logik getrennt bleiben.
     const labels = Array.from({ length: 75 }, (_, i) => `Begriff ${i + 1}`)
     const plan = generatePlan({
       cardCount: 10,

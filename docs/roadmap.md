@@ -15,7 +15,7 @@ Positionierung und Vermarktung: siehe [publikation.md](publikation.md).
 | Geschäftsmodell | Kostenlos, Open Source, Repo öffentlich |
 | Name | **Bingo Coup** (Repo: `bingo-coup`) |
 | Zeitrahmen | Kein Termindruck — Priorität liegt auf Produktqualität |
-| Spielvarianten | Zahlen **und** Begriffe, generisches Datenmodell von Anfang an |
+| Spielvarianten | Nur Zahlen-Bingo. Das Datenmodell bleibt generisch, aber Begriffe-Bingo ist bewusst kein Ziel. |
 | Regeln | Klassisch 5×5, 1–75, B-I-N-G-O-Spalten, freies Mittelfeld |
 | Sprache | Deutsch, Texte in Sprachdateien (Englisch später ohne Umbau) |
 | Design | Festlich und warm: Serifen, Creme, Gold-Akzent, viel Luft |
@@ -107,7 +107,7 @@ Referenz für die Tests und für den Modus „normales Bingo".
   scharfe Vektorschrift, dasselbe Layout wie in der Vorschau, kein zusätzlicher
   Code. Der Nutzer druckt aus dem Browser nach PDF.
 
-## Phase 3 — Website ✅ erledigt bis auf Begriffe-Bingo
+## Phase 3 — Website ✅ erledigt
 
 Drei Bestandteile, alle statisch:
 
@@ -122,8 +122,6 @@ Drei Bestandteile, alle statisch:
    Der Plan steckt im Link, sodass das Gerät am Beamer garantiert dieselbe
    Reihenfolge zeigt wie der Ausdruck. Der Regiehinweis für den Moderator ist
    klein und gedeckt — am Rechner lesbar, auf der Projektion nicht.
-4. ⬜ **Begriffe-Bingo in der Oberfläche.** Der Kern kann es längst und es ist
-   getestet; es fehlt nur die Eingabemaske für die Begriffe.
 
 Gestaltung: festlich und warm, Serifenschrift, Creme mit Gold-Akzent, großzügige
 Abstände. Gilt für Website und gedruckte Karten gleichermaßen.

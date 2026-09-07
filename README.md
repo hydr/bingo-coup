@@ -18,8 +18,7 @@ etwas, das ohnehin für alle da ist.
 ## Stand
 
 Vollständig benutzbar: Generator, Druckausgabe und Ziehungsapp für den Beamer.
-Offen ist Begriffe-Bingo in der Oberfläche — siehe
-[docs/roadmap.md](docs/roadmap.md).
+Was noch offen ist, steht in [docs/roadmap.md](docs/roadmap.md).
 
 ## Ausprobieren
 
@@ -63,8 +62,8 @@ plan.cards        // eine Karte je Gast
 ```
 
 Standard sind die klassischen Regeln: 5×5, Zahlen 1–75, B-I-N-G-O-Spalten,
-freies Mittelfeld. Statt Zahlen gehen auch Begriffe („Onkel Werner hält eine zu
-lange Rede") — dann ist die Ziehung der Ablauf des Abends.
+freies Mittelfeld. Daneben gibt es einen offenen Regelsatz (1–80, ohne
+Spaltenbindung) und ein 3×3-Feld für Kinder.
 
 ## Herkunft
 

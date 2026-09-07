@@ -1,31 +1,106 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { drawPositions, winIndexOf } from '../core/card.js'
-  import { generatePlan } from '../core/generator.js'
+  import { earliestWinNumber, generatePlan, GenerationError } from '../core/generator.js'
   import { lines } from '../core/rules.js'
+  import {
+    detectLocale,
+    LOCALES,
+    LOCALE_ORDER,
+    persistLocale,
+    type Locale,
+  } from './i18n/index.js'
   import BingoCard from './lib/BingoCard.svelte'
   import DrawApp from './lib/DrawApp.svelte'
   import HostSheet from './lib/HostSheet.svelte'
-  import { drawHash, readParams, RULESETS, rulesetOf } from './lib/planParams.js'
+  import { drawHash, readParams, RULESET_KEYS, rulesetOf } from './lib/planParams.js'
 
-  // Der Einstieg kommt aus der Adresszeile, damit ein geteilter Link auf dem
-  // Gerät am Beamer denselben Plan zeigt.
+  // The entry point comes out of the address bar so that a shared link shows
+  // the same plan on the machine at the projector.
   const initial = readParams(location.hash)
 
+  let locale = $state<Locale>(detectLocale())
   let view = $state(initial.view)
   let guests = $state(initial.params.guests)
-  /** 1-basiert, so wie ein Mensch zählt. Der Kern rechnet 0-basiert. */
+  /** One-based, the way a person counts. The core works zero-based. */
   let winNumber = $state(initial.params.winNumber)
   let seed = $state(initial.params.seed)
   let rulesetKey = $state(initial.params.rulesetKey)
   let showBrand = $state(false)
   let previewCount = $state(8)
 
+  const t = $derived(LOCALES[locale])
   const ruleset = $derived(rulesetOf(rulesetKey))
   const params = $derived({ guests, winNumber, seed, rulesetKey })
+  const earliest = $derived(earliestWinNumber(ruleset))
 
-  // Vor- und Zurück-Taste des Browsers sollen zwischen den Ansichten wirken.
+  const result = $derived.by(() => {
+    try {
+      const plan = generatePlan({
+        ruleset,
+        cardCount: guests,
+        winAt: winNumber - 1,
+        seed,
+      })
+      return { plan, error: null as string | null }
+    } catch (error) {
+      return { plan: null, error: describe(error) }
+    }
+  })
+
+  const plan = $derived(result.plan)
+  const positions = $derived(plan ? drawPositions(plan.drawOrder) : null)
+
+  /**
+   * Turns a core error into something a host can act on. The core's own
+   * messages stay technical and English — they talk about draw orders and
+   * attempt counts, which is the wrong register for somebody planning a party.
+   */
+  function describe(error: unknown): string {
+    if (!(error instanceof GenerationError)) return t.errors.unknown
+    switch (error.code) {
+      case 'too-early':
+        return t.errors.tooEarly(error.earliest ?? earliest)
+      case 'pool-too-small':
+        return t.errors.poolTooSmall
+      case 'out-of-range':
+      case 'impossible':
+        return t.errors.impossible
+      default:
+        return t.errors.unknown
+    }
+  }
+
+  /**
+   * Where the slider sits. Starts just short of the bingo, because that is the
+   * interesting moment — every card waiting for the same number.
+   */
+  let drawn = $state(25)
+
+  // Follow a new plan so the slider never points into nothing.
+  $effect(() => {
+    drawn = Math.min(winNumber - 1, ruleset.poolSize)
+  })
+
+  const bingoCount = $derived.by(() => {
+    if (!plan || !positions) return 0
+    return plan.cards.filter((c) => winIndexOf(c, ruleset, positions) < drawn).length
+  })
+
+  const lastDrawn = $derived(plan && drawn > 0 ? plan.drawOrder[drawn - 1]! : null)
+
+  const winningCellsOf = (lineIdx: number) => lines(ruleset)[lineIdx] ?? []
+
+  // Tab title and <html lang> have to follow the language: search engines and
+  // bookmarks read both, and a static title in index.html would stay behind.
+  $effect(() => {
+    document.title = t.documentTitle
+    document.documentElement.lang = locale
+  })
+
+  // The browser's back button should move between the views.
   onMount(() => {
+
     const sync = () => {
       const next = readParams(location.hash)
       view = next.view
@@ -40,6 +115,11 @@
     return () => window.removeEventListener('hashchange', sync)
   })
 
+  function setLocale(next: Locale) {
+    locale = next
+    persistLocale(next)
+  }
+
   function startDraw() {
     location.hash = drawHash(params)
     view = 'draw'
@@ -50,43 +130,6 @@
     view = 'generator'
   }
 
-  const result = $derived.by(() => {
-    try {
-      const plan = generatePlan({
-        ruleset,
-        cardCount: guests,
-        winAt: winNumber - 1,
-        seed,
-      })
-      return { plan, error: null as string | null }
-    } catch (error) {
-      return { plan: null, error: (error as Error).message }
-    }
-  })
-
-  const plan = $derived(result.plan)
-  const positions = $derived(plan ? drawPositions(plan.drawOrder) : null)
-
-  /**
-   * Position des Schiebereglers. Startet kurz vor dem Bingo, weil das der
-   * interessanteste Moment ist — alle Karten warten auf dieselbe Zahl.
-   */
-  let drawn = $state(25)
-
-  // Bei neuem Plan mitziehen, damit der Regler nie im Nichts steht.
-  $effect(() => {
-    drawn = Math.min(winNumber - 1, ruleset.poolSize)
-  })
-
-  const bingoCount = $derived.by(() => {
-    if (!plan || !positions) return 0
-    return plan.cards.filter((c) => winIndexOf(c, ruleset, positions) < drawn).length
-  })
-
-  const lastDrawn = $derived(plan && drawn > 0 ? plan.drawOrder[drawn - 1]! : null)
-
-  const winningCellsOf = (lineIdx: number) => lines(ruleset)[lineIdx] ?? []
-
   function reroll() {
     seed = Math.floor(Math.random() * 99999999)
   }
@@ -94,217 +137,262 @@
 
 {#if view === 'draw'}
   <!--
-    Der Schluessel erzwingt einen Neuaufbau, sobald sich der Plan aendert.
-    Ohne ihn behaelt die Ziehung ihren Zaehlerstand: Wer im Generator den Seed
-    aendert und neu startet, stuende mitten in einer fremden Ziehung.
+    The key forces a rebuild as soon as the plan changes. Without it the draw
+    keeps its counter: change the seed and restart, and the host would stand in
+    the middle of a draw that no longer matches the fresh printout.
   -->
   {#key drawHash(params)}
-    <DrawApp params={params} onExit={leaveDraw} />
+    <DrawApp {params} {t} onExit={leaveDraw} />
   {/key}
 {:else}
-<header class="hero no-print">
-  <div class="wrap">
-    <p class="eyebrow">Bingo Coup</p>
-    <h1>Bingo, bei dem<br />alle gleichzeitig gewinnen.</h1>
-    <p class="lead">
-      Das Spiel läuft für alle sichtbar normal ab: echte Karten, ein Moderator, der
-      Zahlen vorliest. Nur ist die Reihenfolge vorher festgelegt — und jede Karte so
-      gebaut, dass ihr am Ende dieselbe Zahl fehlt. Dann fällt sie, und der ganze Saal
-      springt im selben Augenblick auf.
-    </p>
-  </div>
-</header>
-
-<main class="wrap no-print">
-  <hr class="rule" />
-
-  <section>
-    <h2>Spielplan erzeugen</h2>
-
-    <div class="controls">
-      <div>
-        <label for="guests">Gäste</label>
-        <input id="guests" type="number" min="1" max="500" bind:value={guests} data-testid="guests" />
-      </div>
-      <div>
-        <label for="winNumber">Bingo bei Ziehung</label>
-        <input
-          id="winNumber"
-          type="number"
-          min="4"
-          max={ruleset.poolSize}
-          bind:value={winNumber}
-          data-testid="win-number"
-        />
-      </div>
-      <div>
-        <label for="seed">Seed</label>
-        <input id="seed" type="number" bind:value={seed} data-testid="seed" />
-      </div>
-      <div>
-        <label for="ruleset">Regeln</label>
-        <select id="ruleset" bind:value={rulesetKey} data-testid="ruleset">
-          {#each Object.entries(RULESETS) as [key, entry] (key)}
-            <option value={key}>{entry.label}</option>
+  <header class="hero no-print">
+    <div class="wrap">
+      <div class="topline">
+        <p class="eyebrow">{t.brand}</p>
+        <nav class="langs" aria-label={t.language.label}>
+          {#each LOCALE_ORDER as code (code)}
+            <button
+              class="lang"
+              class:active={locale === code}
+              aria-current={locale === code ? 'true' : undefined}
+              onclick={() => setLocale(code)}
+              data-testid={`lang-${code}`}
+            >
+              {t.language[code]}
+            </button>
           {/each}
-        </select>
+        </nav>
       </div>
+
+      <h1>{t.hero.title[0]}<br />{t.hero.title[1]}</h1>
+      <p class="lead">{t.hero.lead}</p>
     </div>
+  </header>
 
-    <div class="actions">
-      <button class="ghost" onclick={reroll} data-testid="reroll">Andere Karten</button>
-      <button onclick={() => window.print()} disabled={!plan} data-testid="print">
-        Karten und Moderatorenblatt drucken
-      </button>
-      <button class="ghost" onclick={startDraw} disabled={!plan} data-testid="start-draw">
-        Ziehung am Beamer starten
-      </button>
-      <label class="inline">
-        <input type="checkbox" bind:checked={showBrand} data-testid="brand-toggle" />
-        Aufdruck „Bingo Coup" auf den Karten
-      </label>
-    </div>
-
-    <p class="small muted hint">
-      Der Seed macht den Plan reproduzierbar: Geht der Ausdruck verloren, liefert
-      derselbe Seed exakt dieselben Karten. Der Aufdruck bleibt standardmäßig weg —
-      auf dem Tisch würde er die Überraschung verraten.
-    </p>
-
-    <p class="small muted hint">
-      Die Ziehung läuft im Browser und übernimmt das Vorlesen. Der Link dorthin
-      enthält den Plan — du kannst ihn auf das Gerät schicken, das am Beamer hängt,
-      und bekommst dort garantiert dieselbe Reihenfolge wie auf dem Ausdruck.
-    </p>
-
-    {#if result.error}
-      <p class="error" data-testid="error">{result.error}</p>
-    {/if}
-  </section>
-
-  {#if plan && positions}
+  <main class="wrap no-print">
     <hr class="rule" />
 
     <section>
-      <h2>Probelauf</h2>
-      <p class="lead">
-        Zieh den Regler durch die Ziehung. Bis zur {winNumber}. Zahl hat niemand Bingo —
-        dann alle auf einmal.
-      </p>
+      <h2>{t.generator.heading}</h2>
 
-      <div class="sim">
-        <input
-          type="range"
-          min="0"
-          max={plan.drawOrder.length}
-          bind:value={drawn}
-          aria-label="Anzahl gezogener Zahlen"
-          data-testid="draw-slider"
-        />
-
-        <div class="readout">
-          <div>
-            <span class="readout-label">Gezogen</span>
-            <strong data-testid="drawn-count">{drawn}</strong>
-            <span class="muted">von {plan.drawOrder.length}</span>
-          </div>
-          <div>
-            <span class="readout-label">Zuletzt</span>
-            <strong data-testid="last-drawn">{lastDrawn ? lastDrawn.label : '—'}</strong>
-          </div>
-          <div class:triumph={bingoCount > 0}>
-            <span class="readout-label">Bingo</span>
-            <strong data-testid="bingo-count">{bingoCount}</strong>
-            <span class="muted">von {guests} Karten</span>
-          </div>
+      <div class="controls">
+        <div>
+          <label for="guests">{t.generator.guests}</label>
+          <input
+            id="guests"
+            type="number"
+            min="1"
+            max="500"
+            bind:value={guests}
+            data-testid="guests"
+          />
         </div>
-
-        {#if bingoCount === 0 && drawn === winNumber - 1}
-          <p class="cue-line" data-testid="cue-line">
-            Alle {guests} Karten warten jetzt auf die
-            <strong>{plan.winningItem.label}</strong>.
-          </p>
-        {:else if bingoCount === guests && guests > 0}
-          <p class="cue-line triumph-line" data-testid="triumph-line">
-            Alle {guests} Karten haben Bingo — ausgelöst von der
-            <strong>{plan.winningItem.label}</strong>.
-          </p>
-        {/if}
+        <div>
+          <label for="winNumber">{t.generator.winNumber}</label>
+          <input
+            id="winNumber"
+            type="number"
+            min={earliest}
+            max={ruleset.poolSize}
+            bind:value={winNumber}
+            data-testid="win-number"
+          />
+        </div>
+        <div>
+          <label for="seed">{t.generator.seed}</label>
+          <input id="seed" type="number" bind:value={seed} data-testid="seed" />
+        </div>
+        <div>
+          <label for="ruleset">{t.generator.rules}</label>
+          <select id="ruleset" bind:value={rulesetKey} data-testid="ruleset">
+            {#each RULESET_KEYS as key (key)}
+              <option value={key}>{t.rulesets[key]}</option>
+            {/each}
+          </select>
+        </div>
       </div>
 
-      <h3 class="preview-head">Vorschau</h3>
-      <p class="small muted">
-        Die Ringe zeigen den Stand beim Reglerwert. Die goldene Fläche ist die
-        Gewinnlinie — die sieht nur du, nicht der Gast.
-      </p>
+      <div class="actions">
+        <button class="ghost" onclick={reroll} data-testid="reroll">
+          {t.generator.reroll}
+        </button>
+        <button onclick={() => window.print()} disabled={!plan} data-testid="print">
+          {t.generator.print}
+        </button>
+        <button class="ghost" onclick={startDraw} disabled={!plan} data-testid="start-draw">
+          {t.generator.startDraw}
+        </button>
+        <label class="inline">
+          <input type="checkbox" bind:checked={showBrand} data-testid="brand-toggle" />
+          {t.generator.brandToggle(t.brand)}
+        </label>
+      </div>
 
-      <div class="cards" data-testid="preview">
-        {#each plan.cards.slice(0, previewCount) as card (card.id)}
+      <p class="small muted hint">{t.generator.seedHint}</p>
+      <p class="small muted hint">{t.generator.linkHint}</p>
+
+      {#if result.error}
+        <p class="error" data-testid="error">{result.error}</p>
+      {/if}
+    </section>
+
+    {#if plan && positions}
+      <hr class="rule" />
+
+      <section>
+        <h2>{t.sim.heading}</h2>
+        <p class="lead">{t.sim.lead(winNumber)}</p>
+
+        <div class="sim">
+          <input
+            type="range"
+            min="0"
+            max={plan.drawOrder.length}
+            bind:value={drawn}
+            aria-label={t.sim.sliderLabel}
+            data-testid="draw-slider"
+          />
+
+          <div class="readout">
+            <div>
+              <span class="readout-label">{t.sim.drawn}</span>
+              <strong data-testid="drawn-count">{drawn}</strong>
+              <span class="muted">{t.sim.ofTotal(plan.drawOrder.length)}</span>
+            </div>
+            <div>
+              <span class="readout-label">{t.sim.last}</span>
+              <strong data-testid="last-drawn">{lastDrawn ? lastDrawn.label : '—'}</strong>
+            </div>
+            <div class:triumph={bingoCount > 0}>
+              <span class="readout-label">{t.sim.bingo}</span>
+              <strong data-testid="bingo-count">{bingoCount}</strong>
+              <span class="muted">{t.sim.ofCards(guests)}</span>
+            </div>
+          </div>
+
+          {#if bingoCount === 0 && drawn === winNumber - 1}
+            <p class="cue-line" data-testid="cue-line">
+              {t.sim.waiting(guests, plan.winningItem.label)}
+            </p>
+          {:else if bingoCount === guests && guests > 0}
+            <p class="cue-line triumph-line" data-testid="triumph-line">
+              {t.sim.triumph(guests, plan.winningItem.label)}
+            </p>
+          {/if}
+        </div>
+
+        <h3 class="preview-head">{t.sim.previewHeading}</h3>
+        <p class="small muted">{t.sim.previewHint}</p>
+
+        <div class="cards" data-testid="preview">
+          {#each plan.cards.slice(0, previewCount) as card (card.id)}
+            <BingoCard
+              {card}
+              {ruleset}
+              {positions}
+              {t}
+              {drawn}
+              reveal
+              winningCells={winningCellsOf(card.winningLine)}
+              brand={showBrand ? t.brand : null}
+            />
+          {/each}
+        </div>
+
+        {#if previewCount < plan.cards.length}
+          <div class="actions">
+            <button
+              class="ghost"
+              onclick={() => (previewCount = plan.cards.length)}
+              data-testid="show-all"
+            >
+              {t.sim.showAll(plan.cards.length)}
+            </button>
+          </div>
+        {/if}
+      </section>
+
+      <hr class="rule" />
+
+      <section>
+        <HostSheet {plan} {guests} {t} />
+      </section>
+
+      <hr class="rule" />
+
+      <footer class="small muted foot">
+        <p>{t.footer}</p>
+      </footer>
+    {/if}
+  </main>
+
+  <!-- The print version: blank cards to play on, then the host sheet. -->
+  {#if plan && positions}
+    <div class="print-only">
+      <div class="sheet">
+        {#each plan.cards as card (card.id)}
           <BingoCard
             {card}
             {ruleset}
             {positions}
-            {drawn}
-            reveal
-            winningCells={winningCellsOf(card.winningLine)}
-            brand={showBrand ? 'Bingo Coup' : null}
+            {t}
+            drawn={0}
+            brand={showBrand ? t.brand : null}
           />
         {/each}
       </div>
-
-      {#if previewCount < plan.cards.length}
-        <div class="actions">
-          <button
-            class="ghost"
-            onclick={() => (previewCount = plan.cards.length)}
-            data-testid="show-all"
-          >
-            Alle {plan.cards.length} Karten zeigen
-          </button>
-        </div>
-      {/if}
-    </section>
-
-    <hr class="rule" />
-
-    <section>
-      <HostSheet {plan} {guests} />
-    </section>
-
-    <hr class="rule" />
-
-    <footer class="small muted foot">
-      <p>
-        Gedacht für Familienfeiern — Goldene Hochzeit, Hochzeit, Kindergeburtstag,
-        Firmenfeier. Niemand wird bevorzugt, es gibt keinen Verlierer. Nicht gedacht
-        für Verlosungen mit Geldeinsatz.
-      </p>
-    </footer>
-  {/if}
-</main>
-
-<!-- Druckfassung: leere Karten zum Ausfüllen, danach das Moderatorenblatt. -->
-{#if plan && positions}
-  <div class="print-only">
-    <div class="sheet">
-      {#each plan.cards as card (card.id)}
-        <BingoCard
-          {card}
-          {ruleset}
-          {positions}
-          drawn={0}
-          brand={showBrand ? 'Bingo Coup' : null}
-        />
-      {/each}
+      <HostSheet {plan} {guests} {t} />
     </div>
-    <HostSheet {plan} {guests} />
-  </div>
-{/if}
+  {/if}
 {/if}
 
 <style>
   .hero {
-    padding: clamp(3rem, 10vw, 6rem) 0 0;
+    padding: clamp(2rem, 7vw, 4rem) 0 0;
+  }
+
+  .topline {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .topline .eyebrow {
+    margin: 0;
+  }
+
+  .langs {
+    display: flex;
+    gap: 0.15rem;
+    align-items: baseline;
+  }
+
+  button.lang {
+    background: none;
+    border: 0;
+    padding: 0.1rem 0.45rem;
+    color: var(--ink-faint);
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+
+  button.lang:hover {
+    color: var(--gold);
+    background: var(--gold-wash);
+    filter: none;
+  }
+
+  button.lang.active {
+    color: var(--gold);
+    text-decoration: underline;
+    text-underline-offset: 4px;
   }
 
   .controls {
@@ -350,6 +438,7 @@
     margin-top: 1.5rem;
     font-family: var(--sans);
     font-size: 0.88rem;
+    max-width: 42em;
   }
 
   .sim {
@@ -392,11 +481,6 @@
     background: var(--gold-wash);
     border-radius: var(--radius);
     max-width: 40em;
-  }
-
-  .cue-line strong {
-    color: var(--hit);
-    font-size: 1.15em;
   }
 
   .triumph-line {

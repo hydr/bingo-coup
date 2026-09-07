@@ -1,22 +1,22 @@
 /**
- * Deterministischer Zufallsgenerator.
+ * Deterministic random numbers.
  *
- * Reproduzierbarkeit ist hier kein Komfort, sondern Anforderung: Geht das
- * gedruckte PDF verloren, muss derselbe Seed exakt dieselben Karten und
- * dieselbe Ziehungsreihenfolge liefern.
+ * Reproducibility is a requirement here, not a convenience: if the printout
+ * gets lost, the same seed has to return exactly the same cards and the same
+ * draw order.
  */
 export interface Rng {
-  /** Gleichverteilt in [0, 1). */
+  /** Uniform in [0, 1). */
   next(): number
-  /** Ganzzahl in [0, max). */
+  /** Integer in [0, max). */
   int(max: number): number
-  /** Ein zufälliges Element. Wirft bei leerer Liste. */
+  /** A random element. Throws on an empty list. */
   pick<T>(items: readonly T[]): T
-  /** Kopie der Liste in zufälliger Reihenfolge (Fisher-Yates). */
+  /** A copy of the list in random order (Fisher-Yates). */
   shuffled<T>(items: readonly T[]): T[]
 }
 
-/** mulberry32 — klein, schnell, für unsere Zwecke ausreichend gleichverteilt. */
+/** mulberry32 — small, fast, and uniform enough for what we do with it. */
 export function createRng(seed: number): Rng {
   let state = seed >>> 0
 
@@ -34,7 +34,7 @@ export function createRng(seed: number): Rng {
     next,
     int,
     pick<T>(items: readonly T[]): T {
-      if (items.length === 0) throw new Error('pick() auf leerer Liste')
+      if (items.length === 0) throw new Error('pick() on an empty list')
       return items[int(items.length)]!
     },
     shuffled<T>(items: readonly T[]): T[] {
@@ -48,7 +48,7 @@ export function createRng(seed: number): Rng {
   }
 }
 
-/** Zufälliger Seed für den Fall, dass der Nutzer keinen vorgibt. */
+/** A random seed, for when the user does not supply one. */
 export function randomSeed(): number {
   return Math.floor(Math.random() * 0xffffffff) >>> 0
 }

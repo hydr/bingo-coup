@@ -1,150 +1,157 @@
 # Roadmap
 
-Ziel: Aus dem Prototyp `Bingo.py` ein fertiges Produkt machen — eine schöne,
-interaktive Website, mit der ein Gastgeber ohne Vorwissen ein Bingo vorbereiten
-kann, bei dem **alle Gäste gleichzeitig gewinnen**.
+The goal: turn the `Bingo.py` prototype into a finished product — a website a
+host can use without any prior knowledge to prepare a game of bingo where
+**every guest wins at the same moment**.
 
-Positionierung und Vermarktung: siehe [publikation.md](publikation.md).
+Positioning and marketing: see [publication.md](publication.md).
 
-## Getroffene Entscheidungen
+## Decisions taken
 
-| Frage | Entscheidung |
+| Question | Decision |
 |---|---|
-| Technologie | Alles TypeScript, läuft komplett im Browser. Kein Backend. |
-| Umfang | Volles Paket: Landingpage + Generator + PDF + Beamer-Ziehungsapp |
-| Geschäftsmodell | Kostenlos, Open Source, Repo öffentlich |
-| Name | **Bingo Coup** (Repo: `bingo-coup`) |
-| Zeitrahmen | Kein Termindruck — Priorität liegt auf Produktqualität |
-| Spielvarianten | Nur Zahlen-Bingo. Das Datenmodell bleibt generisch, aber Begriffe-Bingo ist bewusst kein Ziel. |
-| Regeln | Klassisch 5×5, 1–75, B-I-N-G-O-Spalten, freies Mittelfeld |
-| Sprache | Deutsch, Texte in Sprachdateien (Englisch später ohne Umbau) |
-| Design | Festlich und warm: Serifen, Creme, Gold-Akzent, viel Luft |
+| Technology | All TypeScript, running entirely in the browser. No backend. |
+| Scope | The full package: landing page, generator, print output, projector draw app |
+| Business model | Free, open source, public repository |
+| Name | **Bingo Coup** (repository: `bingo-coup`) |
+| Timeframe | No deadline — the priority is product quality |
+| Variants | Numbers only. The data model stays generic, but word bingo is deliberately not a goal. |
+| Rules | Classic 5×5, 1–75, B-I-N-G-O columns, free centre |
+| Language | German and English, switchable in the interface |
+| Design | Festive and warm: serifs, cream, a gold accent, plenty of air |
 
-`Bingo.py` bleibt unverändert als Referenz und Projektursprung im Repo liegen.
+`Bingo.py` stays in the repository untouched, as a reference and as the origin
+of the project.
 
-## Ausgangslage
+## Where it started
 
-`Bingo.py` ist der Python-2-Prototyp von 2011 mit dem richtigen Kerngedanken.
-Er bleibt unverändert als Referenz liegen; die Logik ist in `src/core/` neu
-gebaut. Seine bekannten Schwächen — doppelte Zahlen durch zwei Indexfehler,
-nur eine Karte statt n, Verwerfen statt erneutem Versuch — sind dort behoben.
+`Bingo.py` is the Python 2 prototype from 2011 and had the right core idea. It
+stays as a reference; the logic has been rebuilt in `src/core/`. Its known
+weaknesses — duplicate numbers from two indexing bugs, one card instead of n,
+discarding instead of retrying — are fixed there.
 
-## Phase 0 — Kern in TypeScript ✅ erledigt
+## Phase 0 — the core in TypeScript ✅ done
 
-- TypeScript-Projekt, keine Laufzeitabhängigkeiten, kein DOM-Zugriff
-- Klassische Regeln inklusive B-I-N-G-O-Spalten und freiem Mittelfeld
-- 80 Tests auf den Kerninvarianten
-- Seed-basierte Reproduzierbarkeit: gleicher Seed = identischer Plan
+- TypeScript project, no runtime dependencies, no DOM access
+- The classic rules including B-I-N-G-O columns and the free centre
+- Tests on the core invariants
+- Seed-based reproducibility: the same seed gives an identical plan
 
-## Phase 1 — n Karten zu einer Ziehung ✅ erledigt
+## Phase 1 — n cards to one draw ✅ done
 
-`generatePlan()` erzeugt aus einer festen Ziehungsreihenfolge und einem
-Gewinnzeitpunkt n Karten, die alle bei dieser Ziehung gewinnen und keine vorher.
-Varianten über `winAtFor` (Welle, zwei Gruppen, alle-außer-einem).
+`generatePlan()` takes a fixed draw order and a win time and produces n cards
+that all win on that draw and none earlier. Variants through `winAtFor` (a wave
+across tables, two groups, everybody-but-one).
 
-### Was die Machbarkeitsanalyse ergeben hat
+### What the feasibility analysis showed
 
-Die Sorge, die klassischen Regeln könnten den Spielraum zu sehr verengen, hat
-sich **nicht bestätigt**. Gemessen mit `scripts/range.ts`, 80 Gäste, je fünf
-Seeds:
+The worry that the classic rules might narrow the room too much **did not hold
+up**. Measured with `scripts/range.ts`, 80 guests, five seeds each:
 
-| Gewinnzeitpunkt | Klassisch 1–75 | Offen 1–80 |
+| Win time | Classic 1–75 | Open 1–80 |
 |---|---|---|
-| 5 bis 65 | 5/5 erfolgreich | 5/5 erfolgreich |
+| 5 to 65 | 5/5 succeeded | 5/5 succeeded |
 
-Rechenzeit 4–26 ms für einen kompletten Saal. Die Machbarkeit ist damit kein
-Engpass — der sinnvolle Bereich ergibt sich aus der Dramaturgie, nicht aus der
-Kombinatorik. Der Fallback auf `OPEN_80` wird nicht gebraucht, bleibt aber als
-Konfiguration erhalten.
+Four to 26 ms for a whole room. Feasibility is therefore not a constraint — the
+sensible range follows from the drama, not the combinatorics. The fallback to
+`OPEN_80` is not needed but stays available as configuration.
 
-Entscheidend dafür war ein Fund während der Messung: Eine *einzelne*
-Ziehungsreihenfolge trägt nicht jeden Gewinnzeitpunkt. Bei frühen Zeitpunkten
-kann ein B-I-N-G-O-Block in den ersten Ziehungen leer ausgehen, dann lässt sich
-keine Gewinnlinie mehr füllen — bei Ziehung 12 schlug ursprünglich alles fehl,
-während 10 und 15 funktionierten. Da wir die Reihenfolge selbst festlegen,
-mischt `generatePlan` in diesem Fall einfach neu. Das schließt die Lücke.
+What made that possible was a find during the measurement: a *single* draw order
+does not carry every win time. With early win times a whole B-I-N-G-O column can
+go unseen in the first draws, leaving no winning line to fill — draw 12
+originally failed outright while 10 and 15 worked. Since we set the order
+ourselves, `generatePlan` simply reshuffles. That closes the gap.
 
-### Zwei Ausbaustufen, die sich erledigt haben
+### Two planned features that turned out unnecessary
 
-Die gemeinsame Schlusszahl und das „alle haben vorher vier Kreuze" waren als
-eigene Ausbaustufen geplant. Beides ist **zwangsläufig**: Eine Karte gewinnt nur
-dann bei `winAt`, wenn das Element von `winAt` auf ihr steht und alle übrigen
-Felder ihrer Gewinnlinie vorher gezogen wurden. Die dramaturgisch stärkste
-Variante ist der Normalfall, kein Zusatz.
+The shared final number and "everybody already has four marks" were planned as
+separate stages. Both are **inevitable**: a card only wins on `winAt` if the
+item of `winAt` sits on it and every other square of its winning line was drawn
+before. The strongest version dramatically is the normal case, not an addition.
 
-### Die Tarnung war die eigentliche Arbeit
+### The camouflage was the actual work
 
-Nicht die Kombinatorik, sondern die Frage, ob die Karten *echt aussehen*. Ohne
-Gegenmaßnahme trägt eine konstruierte Karte zum Gewinnzeitpunkt genau die
-Treffer ihrer Gewinnlinie und sonst nichts — das fällt jedem Gast auf, der auf
-den Zettel seines Nachbarn schaut.
+Not the combinatorics but the question of whether the cards *look genuine*.
+Without a countermeasure a constructed card carries exactly the hits of its
+winning line at the winning moment and nothing else — which any guest glancing
+at their neighbour's sheet would notice.
 
-Der richtige Maßstab ist dabei nicht eine durchschnittliche Karte, sondern eine
-ehrliche Karte, die zufällig bei `winAt` gewinnt; die hat systematisch mehr
-Treffer, weil sie Glück hatte. Gemessen bei Ziehung 25 von 75:
+The right yardstick is not an average card but an honest one that happens to win
+on `winAt`; that card has systematically more hits, because it got lucky.
+Measured at draw 25 of 75:
 
-| | Treffer im Mittel |
+| | Mean hits |
 |---|---|
-| Ehrliche Karte, die zufällig bei 25 gewinnt | 11,33 |
-| Unsere konstruierte Karte | 11,48 |
-| Ohne `naturalLook` (Gegenprobe) | 6 |
+| An honest card that happens to win on 25 | 11.33 |
+| Our constructed card | 11.48 |
+| Without `naturalLook` (counter-check) | 6 |
 
-Nebenbefund: Eine ehrliche Karte gewinnt in 1,25 % der Fälle genau bei Ziehung
-25. Man könnte die Karten also auch durch Auswahl statt durch Konstruktion
-gewinnen — perfekt getarnt, weil sie echt sind. `scripts/feasibility.ts`
-vergleicht beide Wege. Die Konstruktion gewinnt, weil sie über den gesamten
-Bereich zuverlässig ist und rund tausendmal schneller; `randomCard()` bleibt als
-Referenz für die Tests und für den Modus „normales Bingo".
+A by-product: an honest card wins on exactly draw 25 in 1.25 % of cases. The
+cards could therefore be obtained by selection rather than construction —
+perfectly camouflaged, because they would be genuine. `scripts/feasibility.ts`
+compares both routes. Construction wins because it is reliable across the whole
+range and about a thousand times faster; `randomCard()` stays as the reference
+for the tests and for an "ordinary bingo" mode.
 
-## Phase 2 — Ausgabe zum Drucken ✅ erledigt
+## Phase 2 — output for printing ✅ done
 
-- Karten, 4 pro A4-Seite, **nummeriert** — damit der Gastgeber weiß, welche
-  Karte wohin gehört. Genau daran scheitert es in der Praxis.
-- **Moderatorenblatt**: nicht nur die Ziehungsliste, sondern die Regie —
-  „Zahl 47 → alle haben Bingo → jetzt auspacken lassen". Ohne dieses Dokument
-  funktioniert der Trick nicht.
-- Technisch bevorzugt über Druck-CSS statt einer PDF-Bibliothek: gestochen
-  scharfe Vektorschrift, dasselbe Layout wie in der Vorschau, kein zusätzlicher
-  Code. Der Nutzer druckt aus dem Browser nach PDF.
+- Cards, four per A4 page, **numbered** — so the host knows which card goes
+  where. That is exactly where it goes wrong in practice.
+- **The host sheet**: not just the list of numbers but the cue — "after 47
+  everybody has bingo, hand out the prize now". Without that document the trick
+  does not work.
+- Done with print CSS rather than a PDF library: sharp vector type, the same
+  layout as the preview, no extra code. The user prints to PDF from the browser.
 
-## Phase 3 — Website ✅ erledigt
+## Phase 3 — the website ✅ done
 
-Drei Bestandteile, alle statisch:
+Three parts, all static:
 
-1. ✅ **Landingpage**, die den Effekt in fünf Sekunden verständlich macht
-2. ✅ **Interaktiver Generator**: Gästezahl, Gewinnzeitpunkt, Seed, Regelsatz →
-   Live-Vorschau → Druck. Dazu der **Probelauf**: ein Regler durch die ganze
-   Ziehung, der live mitzählt, wie viele Karten Bingo haben. Bis zur vorletzten
-   Zahl null, dann alle — das überzeugt schneller als jeder Erklärtext und ist
-   gleichzeitig die beste Kontrolle vor dem Drucken.
-3. ✅ **Ziehungsapp für den Beamer**: große Zahl auf dunklem Grund,
-   Trommelwirbel, Tafel mit allen gezogenen Zahlen, Vollbild, Tastatursteuerung.
-   Der Plan steckt im Link, sodass das Gerät am Beamer garantiert dieselbe
-   Reihenfolge zeigt wie der Ausdruck. Der Regiehinweis für den Moderator ist
-   klein und gedeckt — am Rechner lesbar, auf der Projektion nicht.
+1. ✅ **A landing page** that makes the effect clear in five seconds
+2. ✅ **An interactive generator**: guests, win time, seed, ruleset → live
+   preview → print. Plus the **dry run**: a slider across the whole draw that
+   counts live how many cards have bingo. Zero up to the second-to-last number,
+   then all of them — more convincing than any explanation, and at the same time
+   the best check before printing.
+3. ✅ **The projector draw app**: a big number on a dark ground, a drum roll, a
+   board of every number drawn, fullscreen, keyboard control. The plan travels
+   in the link, so the machine at the projector is guaranteed to show the same
+   order as the printout. The host cue is small and muted — readable at the
+   machine, not on the projection.
 
-Gestaltung: festlich und warm, Serifenschrift, Creme mit Gold-Akzent, großzügige
-Abstände. Gilt für Website und gedruckte Karten gleichermaßen.
+Design: festive and warm, serif type, cream with a gold accent, generous
+spacing. The same for the site and the printed cards.
 
-## Veröffentlicht
+## Phase 4 — two languages ✅ done
 
-Live unter **https://hydr.github.io/bingo-coup/**, per GitHub Pages aus
-`.github/workflows/ci.yml`. Deployt wird bei jedem Push auf `master`, aber erst
-nachdem Typprüfung, die 91 Unit-Tests und die 17 Playwright-Tests grün sind.
+German and English, switchable in the header. `src/ui/i18n/en.ts` is the source
+of truth; `de.ts` has to satisfy the type derived from it, so a missing
+translation is a compile error. The choice can be forced with `?lang=`, is
+remembered in `localStorage` and otherwise follows the browser.
 
-Steht später eine eigene Domain, wird sie in den Repo-Einstellungen als
-Custom Domain eingetragen; am Aufbau ändert das nichts.
+Errors from the core carry a code so the interface can phrase them in the chosen
+language, in words a host can act on.
 
-## Phase 4 — Publikation
+## Published
 
-Siehe [publikation.md](publikation.md).
+Live at **https://hydr.github.io/bingo-coup/**, via GitHub Pages out of
+`.github/workflows/ci.yml`. It deploys on every push to `master`, but only once
+the type check, the unit tests and the Playwright tests are green.
 
-## Weiterhin offen
+Should a domain of its own follow later, it goes into the repository settings as
+a custom domain; nothing about the setup changes.
 
-- Whitelabel ist erledigt: Der Aufdruck auf den Karten ist standardmäßig aus,
-  und die Ziehungsapp zeigt den Produktnamen nirgends.
-- Domain sichern: `bingocoup.de` und `coupbingo.com` sahen im DNS-Check frei
-  aus. **Das Markenregister ist nicht geprüft** — siehe publikation.md.
-- Kartengröße 3×3 für Kinder ist als Regelsatz `KIDS_3X3` vorhanden und in der
-  Oberfläche wählbar; ein eigenes Design dafür fehlt noch.
-- Wer produziert das erste Video? Braucht einen echten Anlass.
+## Phase 5 — marketing
+
+See [publication.md](publication.md).
+
+## Still open
+
+- White-labelling is done: the imprint on the cards is off by default, and the
+  draw app shows the product name nowhere.
+- Secure the domain: `bingocoup.de` and `coupbingo.com` looked free in a DNS
+  check. **The trade mark registers have not been checked** — see
+  publication.md.
+- A 3×3 grid for children exists as the `KIDS_3X3` ruleset and can be chosen in
+  the interface; a design of its own for it is still missing.
+- Who makes the first video? That needs a real occasion.

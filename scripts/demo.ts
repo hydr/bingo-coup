@@ -1,7 +1,7 @@
 /**
- * Zeigt einen fertigen Spielplan im Terminal — Vorstufe des Moderatorenblatts.
+ * Prints a finished plan to the terminal — the precursor of the host sheet.
  *
- *   npx tsx scripts/demo.ts [gaeste] [gewinnzeitpunkt] [seed]
+ *   npx tsx scripts/demo.ts [guests] [win time] [seed]
  */
 import { drawPositions, hitsAfter } from '../src/core/card.js'
 import { generatePlan } from '../src/core/generator.js'
@@ -29,7 +29,7 @@ function renderCard(plan: Plan, card: Card, drawn: number): string[] {
       const idx = row * ruleset.cols + col
       const cell = card.cells[idx]!
       const text = cell === null ? '**' : cell.label.padStart(2)
-      // Getroffene Felder in Klammern, damit man das Bild ohne Farbe liest.
+      // Marked squares in brackets, so the pattern reads without colour.
       cells.push(hits[idx] ? `(${text})` : ` ${text} `)
     }
     out.push(cells.join(''))
@@ -37,37 +37,37 @@ function renderCard(plan: Plan, card: Card, drawn: number): string[] {
   return out
 }
 
-console.log(`\nSpielplan — ${guests} Gaeste, Bingo bei Ziehung ${winAt + 1}, Seed ${seed}`)
+console.log(`\nPlan — ${guests} guests, bingo on draw ${winAt + 1}, seed ${seed}`)
 console.log('='.repeat(72))
 
-console.log('\nZIEHUNGSREIHENFOLGE (in genau dieser Reihenfolge vorlesen)\n')
+console.log('\nDRAW ORDER (read out in exactly this order)\n')
 const lines: string[] = []
 for (let i = 0; i < plan.drawOrder.length; i += 10) {
   const chunk = plan.drawOrder.slice(i, i + 10).map((it) => it.label.padStart(3))
   lines.push(`${String(i + 1).padStart(3)}. ${chunk.join(' ')}`)
 }
 console.log(lines.slice(0, Math.ceil((winAt + 6) / 10)).join('\n'))
-console.log(`  ... insgesamt ${plan.drawOrder.length} Zahlen`)
+console.log(`  ... ${plan.drawOrder.length} numbers in total`)
 
-console.log(`\n>>> REGIE: Nach Zahl ${plan.winningItem.label} (die ${winAt + 1}. Ziehung)`)
-console.log(`    haben ALLE ${guests} Gaeste gleichzeitig Bingo.`)
-console.log(`    Ab hier: Preis verteilen bzw. auspacken lassen.\n`)
+console.log(`\n>>> CUE: after the number ${plan.winningItem.label} (draw ${winAt + 1})`)
+console.log(`    all ${guests} guests have bingo at the same time.`)
+console.log(`    From here: hand out the prize, or let them unwrap.\n`)
 
 console.log('='.repeat(72))
-console.log(`\nDie ersten drei Karten, Stand kurz vor dem Bingo (${winAt} Zahlen gezogen):\n`)
+console.log(`\nThe first three cards, just short of bingo (${winAt} numbers drawn):\n`)
 
 for (const card of plan.cards.slice(0, 3)) {
-  console.log(`Karte ${card.id}`)
+  console.log(`Card ${card.id}`)
   for (const row of renderCard(plan, card, winAt)) console.log(`  ${row}`)
-  console.log(`  -> es fehlt nur noch die ${plan.winningItem.label}\n`)
+  console.log(`  -> only the ${plan.winningItem.label} is missing\n`)
 }
 
-console.log('Dieselben Karten eine Ziehung spaeter:\n')
+console.log('The same cards one draw later:\n')
 for (const card of plan.cards.slice(0, 3)) {
-  console.log(`Karte ${card.id}`)
+  console.log(`Card ${card.id}`)
   for (const row of renderCard(plan, card, winAt + 1)) console.log(`  ${row}`)
   console.log()
 }
 
 const [from, to] = columnRange(plan.ruleset, 0)
-console.log(`(Spalte B enthaelt Zahlen ${from}-${to}, danach je 15 weiter.)`)
+console.log(`(Column B holds numbers ${from}-${to}, each following column 15 more.)`)

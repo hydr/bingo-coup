@@ -11,14 +11,19 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  // Gegen den gebauten Stand testen, nicht gegen den Dev-Server: Nur so wird
-  // auch die Produktionsausgabe geprueft.
-  // --host ist nötig: ohne ihn lauscht vite preview nicht auf 127.0.0.1 und
-  // Playwright wartet vergeblich.
+  // Test against the built output rather than the dev server — that is the
+  // only way the production bundle gets checked.
+  //
+  // `--host` is required: without it vite preview does not bind 127.0.0.1 and
+  // Playwright waits out its timeout.
+  // Never reuse a running server. It would skip the build in the command
+  // above, and the whole suite would silently pass against a stale bundle —
+  // which has already happened twice. A build takes about a second; a green
+  // run on old code costs a lot more than that.
   webServer: {
     command: 'npx vite build && npx vite preview --port 4173 --strictPort --host 127.0.0.1',
     url: 'http://127.0.0.1:4173',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 })

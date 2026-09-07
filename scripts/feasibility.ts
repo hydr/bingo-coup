@@ -1,17 +1,16 @@
 /**
- * Machbarkeitsanalyse.
+ * Feasibility analysis.
  *
- * Beantwortet die Frage, an der der ganze Plan haengt: Bei welchen
- * Gewinnzeitpunkten laesst sich ein Saal voller Karten ueberhaupt bauen — und
- * wie gut sind die Karten getarnt?
+ * Answers the question the whole plan rested on: for which win times can a room
+ * full of cards be built at all — and how well camouflaged are they?
  *
- * Zwei Verfahren im Vergleich:
- *   Auswahl (rejection sampling): ehrliche Zufallskarten erzeugen und die
- *     behalten, die zufaellig zum richtigen Zeitpunkt gewinnen. Perfekt
- *     getarnt, weil die Karten echt sind — aber nur brauchbar, solange die
- *     Trefferquote nicht zu klein wird.
- *   Konstruktion: die Karte gezielt um eine Gewinnlinie herum aufbauen.
- *     Funktioniert immer, muss die Tarnung aber selbst herstellen.
+ * Two methods compared:
+ *   Selection (rejection sampling): generate honest random cards and keep the
+ *     ones that happen to win at the right moment. Perfectly camouflaged
+ *     because the cards are genuine — but only usable while the hit rate stays
+ *     workable.
+ *   Construction: build the card deliberately around a winning line. Always
+ *     works, but has to produce the camouflage itself.
  */
 import { drawPositions, hitCountAfter, signatureOf, winIndexOf } from '../src/core/card.js'
 import { buildCard, GenerationError, randomCard } from '../src/core/generator.js'
@@ -39,7 +38,7 @@ function analyse(ruleset: Ruleset, winAt: number, seed: number): Row {
   const drawOrder = rng.shuffled(items)
   const positions = drawPositions(drawOrder)
 
-  // --- Verfahren 1: ehrliche Karten, gefiltert --------------------------
+  // --- Method 1: honest cards, filtered ---------------------------------
   const honestHits: number[] = []
   for (let i = 0; i < SAMPLES; i++) {
     const card = randomCard(ruleset, items, rng)
@@ -48,7 +47,7 @@ function analyse(ruleset: Ruleset, winAt: number, seed: number): Row {
     }
   }
 
-  // --- Verfahren 2: konstruierte Karten ----------------------------------
+  // --- Method 2: constructed cards ---------------------------------------
   const started = performance.now()
   const builtHits: number[] = []
   const signatures = new Set<string>()
@@ -83,32 +82,35 @@ function analyse(ruleset: Ruleset, winAt: number, seed: number): Row {
 }
 
 function report(name: string, ruleset: Ruleset, points: readonly number[]): void {
-  console.log(`\n=== ${name} (${ruleset.rows}x${ruleset.cols}, 1-${ruleset.poolSize}, ` +
-    `Spalten ${ruleset.columnRanges ? 'an' : 'aus'}, freies Feld ${ruleset.freeCenter ? 'an' : 'aus'}) ===\n`)
   console.log(
-    'Ziehung |  Auswahl  | Karten/s |  Bau ok | ms/Karte | Treffer echt | Treffer gebaut | verschieden',
+    `\n=== ${name} (${ruleset.rows}x${ruleset.cols}, 1-${ruleset.poolSize}, ` +
+      `columns ${ruleset.columnRanges ? 'on' : 'off'}, free centre ` +
+      `${ruleset.freeCenter ? 'on' : 'off'}) ===\n`,
   )
-  console.log('-'.repeat(104))
+  console.log(
+    'Draw | Selection | Cards/s | Build ok | ms/card | Hits honest | Hits built | Distinct',
+  )
+  console.log('-'.repeat(100))
 
   for (const winAt of points) {
     const r = analyse(ruleset, winAt, 1000 + winAt)
     const rate = r.perMille < 0.01 ? '  < 0.01' : r.perMille.toFixed(2).padStart(8)
-    // Wie viele Karten liefert die Auswahl pro Sekunde? Grob: 1 Mio Ziehungen/s.
+    // How many cards would selection yield per second? Roughly.
     const perSecond = r.hitRate === 0 ? 0 : Math.round(r.hitRate * 200_000)
     console.log(
       [
-        String(r.winAt).padStart(7),
+        String(r.winAt).padStart(4),
         `${rate} ‰`,
-        String(perSecond).padStart(8),
-        `${(r.buildOk * 100).toFixed(0).padStart(6)} %`,
-        r.buildMs.toFixed(2).padStart(8),
-        (r.meanHonest?.toFixed(2) ?? '  —').padStart(12),
-        (r.meanBuilt?.toFixed(2) ?? '  —').padStart(14),
-        String(r.distinct).padStart(11),
+        String(perSecond).padStart(7),
+        `${(r.buildOk * 100).toFixed(0).padStart(7)} %`,
+        r.buildMs.toFixed(2).padStart(7),
+        (r.meanHonest?.toFixed(2) ?? '  —').padStart(11),
+        (r.meanBuilt?.toFixed(2) ?? '  —').padStart(10),
+        String(r.distinct).padStart(8),
       ].join(' | '),
     )
   }
 }
 
-report('Klassisch', CLASSIC, [8, 10, 12, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60])
-report('Offen 1-80', OPEN_80, [10, 15, 20, 25, 30, 35, 40, 45, 50])
+report('Classic', CLASSIC, [8, 10, 12, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60])
+report('Open 1-80', OPEN_80, [10, 15, 20, 25, 30, 35, 40, 45, 50])

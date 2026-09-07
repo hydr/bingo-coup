@@ -8,20 +8,26 @@ import {
   signatureOf,
   winIndexOf,
 } from './card.js'
-import { buildCard, generatePlan, GenerationError, randomCard } from './generator.js'
+import {
+  buildCard,
+  earliestWinNumber,
+  generatePlan,
+  GenerationError,
+  randomCard,
+} from './generator.js'
 import { createRng } from './rng.js'
 import { columnRange, freeIndex, lines, numberItems } from './rules.js'
 import { CLASSIC, KIDS_3X3, OPEN_80 } from './types.js'
 
-/** Der Gewinnzeitpunkt, den wir als Standard erwarten. */
+/** The win time we treat as the default. */
 const WIN_AT = 25
 
-describe('Kerninvariante: Bingo genau zum geplanten Zeitpunkt', () => {
-  // Ueber viele Seeds, weil ein einzelner Durchlauf einen seltenen Fehlerfall
-  // in der Maskenlogik nicht zuverlaessig aufdeckt.
+describe('the core invariant: bingo exactly when planned', () => {
+  // Across many seeds, because a single run does not reliably surface a rare
+  // failure in the slot logic.
   const seeds = Array.from({ length: 60 }, (_, i) => i * 977 + 1)
 
-  it.each(seeds)('Seed %i: Karte gewinnt bei Ziehung 25, keine frueher', (seed) => {
+  it.each(seeds)('seed %i: the card wins on draw 25, none earlier', (seed) => {
     const rng = createRng(seed)
     const drawOrder = rng.shuffled(numberItems(CLASSIC))
     const positions = drawPositions(drawOrder)
@@ -31,7 +37,7 @@ describe('Kerninvariante: Bingo genau zum geplanten Zeitpunkt', () => {
     expect(winIndexOf(card, CLASSIC, positions)).toBe(WIN_AT)
   })
 
-  it('keine Linie wird vor dem Gewinnzeitpunkt vollstaendig', () => {
+  it('no line completes before the win time', () => {
     const rng = createRng(4242)
     const drawOrder = rng.shuffled(numberItems(CLASSIC))
     const positions = drawPositions(drawOrder)
@@ -45,11 +51,11 @@ describe('Kerninvariante: Bingo genau zum geplanten Zeitpunkt', () => {
   })
 })
 
-describe('Kartenstruktur', () => {
+describe('card structure', () => {
   const rng = createRng(7)
   const drawOrder = rng.shuffled(numberItems(CLASSIC))
 
-  it('jede Zahl kommt nur einmal vor', () => {
+  it('every number appears only once', () => {
     for (let n = 0; n < 25; n++) {
       const card = buildCard(CLASSIC, drawOrder, WIN_AT, rng, n + 1)
       const ids = card.cells.filter((c) => c !== null).map((c) => c!.id)
@@ -57,7 +63,7 @@ describe('Kartenstruktur', () => {
     }
   })
 
-  it('jede Zahl steht im Zahlenbereich ihrer Spalte', () => {
+  it('every number sits in its column range', () => {
     for (let n = 0; n < 25; n++) {
       const card = buildCard(CLASSIC, drawOrder, WIN_AT, rng, n + 1)
       card.cells.forEach((cell, idx) => {
@@ -69,36 +75,36 @@ describe('Kartenstruktur', () => {
     }
   })
 
-  it('das Mittelfeld ist frei', () => {
+  it('the centre square is free', () => {
     const card = buildCard(CLASSIC, drawOrder, WIN_AT, rng, 1)
     expect(card.cells[freeIndex(CLASSIC)]).toBeNull()
   })
 })
 
-describe('Plan: alle gewinnen gleichzeitig', () => {
+describe('a plan: everybody wins at once', () => {
   const plan = generatePlan({ cardCount: 60, winAt: WIN_AT, seed: 20240906 })
   const positions = drawPositions(plan.drawOrder)
 
-  it('erzeugt die angeforderte Kartenzahl', () => {
+  it('produces as many cards as asked for', () => {
     expect(plan.cards).toHaveLength(60)
   })
 
-  it('jede einzelne Karte gewinnt bei derselben Ziehung', () => {
+  it('every single card wins on the same draw', () => {
     for (const card of plan.cards) {
       expect(winIndexOf(card, plan.ruleset, positions)).toBe(WIN_AT)
     }
   })
 
-  it('alle Karten werden von derselben Zahl ausgeloest', () => {
-    // Folgt zwingend aus dem gemeinsamen Gewinnzeitpunkt — und ist genau der
-    // Moment, auf den die ganze Dramaturgie hinauslaeuft.
+  it('every card is set off by the same number', () => {
+    // A necessary consequence of the shared win time — and exactly the moment
+    // the whole build-up leads to.
     for (const card of plan.cards) {
       const ids = card.cells.filter((c) => c !== null).map((c) => c!.id)
       expect(ids).toContain(plan.winningItem.id)
     }
   })
 
-  it('alle Karten stehen eine Ziehung vorher kurz vor dem Bingo', () => {
+  it('one draw earlier, every card is one square short', () => {
     for (const card of plan.cards) {
       const before = hitsAfter(card, positions, WIN_AT)
       const line = lines(plan.ruleset)[card.winningLine]!
@@ -107,31 +113,31 @@ describe('Plan: alle gewinnen gleichzeitig', () => {
     }
   })
 
-  it('keine Karte kommt doppelt vor', () => {
+  it('no card appears twice', () => {
     const signatures = plan.cards.map(signatureOf)
     expect(new Set(signatures).size).toBe(signatures.length)
   })
 
-  it('derselbe Seed liefert exakt denselben Plan', () => {
+  it('the same seed returns exactly the same plan', () => {
     const again = generatePlan({ cardCount: 60, winAt: WIN_AT, seed: 20240906 })
     expect(again.cards.map(signatureOf)).toEqual(plan.cards.map(signatureOf))
     expect(again.drawOrder.map((i) => i.id)).toEqual(plan.drawOrder.map((i) => i.id))
   })
 
-  it('ein anderer Seed liefert einen anderen Plan', () => {
+  it('a different seed returns a different plan', () => {
     const other = generatePlan({ cardCount: 60, winAt: WIN_AT, seed: 999 })
     expect(other.cards.map(signatureOf)).not.toEqual(plan.cards.map(signatureOf))
   })
 })
 
-describe('Tarnung: die Karten duerfen nicht praepariert aussehen', () => {
+describe('camouflage: the cards must not look prepared', () => {
   const average = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
 
-  it('das Trefferbild gleicht dem echter Gewinnerkarten', () => {
-    // Der Massstab ist nicht irgendeine Karte, sondern eine ehrliche Karte, die
-    // zufaellig genau bei WIN_AT gewinnt. Die hat systematisch mehr Treffer als
-    // der Durchschnitt — sie hatte ja Glueck. Diese Referenz wird hier gemessen
-    // statt geschaetzt, damit der Test nicht an einer Faustregel haengt.
+  it('the pattern of hits matches that of honest winning cards', () => {
+    // The yardstick is not any old card but an honest one that happens to win
+    // exactly on WIN_AT. Such a card has systematically more hits than average
+    // — it got lucky. This reference is measured here rather than estimated,
+    // so the test does not rest on a rule of thumb.
     const plan = generatePlan({ cardCount: 150, winAt: WIN_AT, seed: 31337 })
     const pos = drawPositions(plan.drawOrder)
 
@@ -150,8 +156,9 @@ describe('Tarnung: die Karten duerfen nicht praepariert aussehen', () => {
     expect(Math.abs(average(built) - average(honest))).toBeLessThan(1)
   })
 
-  it('ohne naturalLook faellt die Karte auf', () => {
-    // Gegenprobe: dann traegt die Karte nur die Gewinnlinie und das freie Feld.
+  it('without naturalLook the card stands out', () => {
+    // The counter-check: the card then carries only its winning line and the
+    // free centre.
     const plan = generatePlan({
       cardCount: 20,
       winAt: WIN_AT,
@@ -163,19 +170,19 @@ describe('Tarnung: die Karten duerfen nicht praepariert aussehen', () => {
     expect(Math.max(...counts)).toBeLessThanOrEqual(6)
   })
 
-  it('die Gewinnlinie liegt nicht immer an derselben Stelle', () => {
+  it('the winning line is not always in the same place', () => {
     const plan = generatePlan({ cardCount: 80, winAt: WIN_AT, seed: 6060 })
     expect(new Set(plan.cards.map((c) => c.winningLine)).size).toBeGreaterThan(2)
   })
 })
 
-describe('Varianten', () => {
-  it('die Welle: tischweise versetzte Gewinnzeitpunkte', () => {
+describe('variants', () => {
+  it('the wave: win times staggered table by table', () => {
     const plan = generatePlan({
       cardCount: 24,
       winAt: 25,
       seed: 11,
-      winAtFor: (i) => 25 + Math.floor(i / 8), // drei Tische a acht Gaeste
+      winAtFor: (i) => 25 + Math.floor(i / 8), // three tables of eight guests
     })
     const pos = drawPositions(plan.drawOrder)
     const wins = plan.cards.map((c) => winIndexOf(c, plan.ruleset, pos))
@@ -185,7 +192,7 @@ describe('Varianten', () => {
     expect(wins.slice(16, 24).every((w) => w === 27)).toBe(true)
   })
 
-  it('funktioniert ohne Spaltenbindung und ohne freies Feld', () => {
+  it('works without column ranges and without a free centre', () => {
     const plan = generatePlan({ ruleset: OPEN_80, cardCount: 40, winAt: 25, seed: 77 })
     const pos = drawPositions(plan.drawOrder)
     for (const card of plan.cards) {
@@ -194,7 +201,7 @@ describe('Varianten', () => {
     }
   })
 
-  it('funktioniert auf dem kleinen Kinderfeld', () => {
+  it('works on the small kids grid', () => {
     const plan = generatePlan({ ruleset: KIDS_3X3, cardCount: 15, winAt: 8, seed: 3 })
     const pos = drawPositions(plan.drawOrder)
     for (const card of plan.cards) {
@@ -203,10 +210,10 @@ describe('Varianten', () => {
     }
   })
 
-  it('eigene Beschriftungen verhalten sich wie Zahlen', () => {
-    // Die Gewinnlogik darf nie auf `label` schauen. Kein Produktfeature,
-    // sondern die Zusicherung, dass Darstellung und Logik getrennt bleiben.
-    const labels = Array.from({ length: 75 }, (_, i) => `Begriff ${i + 1}`)
+  it('custom labels behave exactly like numbers', () => {
+    // The win logic must never look at `label`. Not a product feature but the
+    // guarantee that display and logic stay apart.
+    const labels = Array.from({ length: 75 }, (_, i) => `Phrase ${i + 1}`)
     const plan = generatePlan({
       cardCount: 10,
       winAt: 20,
@@ -217,21 +224,37 @@ describe('Varianten', () => {
     for (const card of plan.cards) {
       expect(winIndexOf(card, plan.ruleset, pos)).toBe(20)
     }
-    expect(plan.winningItem.label).toMatch(/^Begriff /)
+    expect(plan.winningItem.label).toMatch(/^Phrase /)
   })
 })
 
-describe('Fehlerfaelle', () => {
-  it('meldet einen Gewinnzeitpunkt ausserhalb der Ziehung', () => {
+describe('failure cases', () => {
+  it('reports a win time outside the draw', () => {
     const rng = createRng(1)
     const drawOrder = rng.shuffled(numberItems(CLASSIC))
     expect(() => buildCard(CLASSIC, drawOrder, 999, rng, 1)).toThrow(GenerationError)
   })
 
-  it('meldet einen zu fruehen Gewinnzeitpunkt mit klarer Begruendung', () => {
-    // Vier Treffer in einer Linie sind vor der vierten Ziehung unmoeglich.
-    expect(() => generatePlan({ cardCount: 1, winAt: 2, seed: 1 })).toThrow(
-      /zu frueh oder zu spaet/,
-    )
+  it('reports a win time that is too early, and says what would work', () => {
+    // Four squares in a line cannot all be hit before the fourth draw. The
+    // code matters more than the wording: the interface picks the message it
+    // shows from it, in whichever language is on.
+    expect.assertions(3)
+    try {
+      generatePlan({ cardCount: 1, winAt: 2, seed: 1 })
+    } catch (error) {
+      const failure = error as GenerationError
+      expect(failure.code).toBe('too-early')
+      expect(failure.earliest).toBe(4)
+      expect(failure.message).toContain('at least 4')
+    }
+  })
+
+  it('names the earliest possible win for each ruleset', () => {
+    // A line through the free centre needs one real square less, which is what
+    // makes an early win possible at all.
+    expect(earliestWinNumber(CLASSIC)).toBe(4)
+    expect(earliestWinNumber(KIDS_3X3)).toBe(2)
+    expect(earliestWinNumber(OPEN_80)).toBe(5)
   })
 })

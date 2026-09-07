@@ -2,79 +2,78 @@
 
 **[hydr.github.io/bingo-coup](https://hydr.github.io/bingo-coup/)**
 
-Bingo, bei dem **alle Gäste gleichzeitig gewinnen**.
+Bingo where **every guest wins at the same moment**.
 
-Das Spiel läuft für alle sichtbar normal ab: echte Karten, ein Moderator, der
-Zahlen vorliest. Nur ist die Ziehungsreihenfolge vorher festgelegt und jede
-Karte so gebaut, dass sie genau bei einer bestimmten Ziehung Bingo hat — bei
-derselben für alle. In den letzten Runden merkt nach und nach jeder im Raum,
-dass ihm nur noch eine Zahl fehlt. Dann fällt sie, und der ganze Saal springt
-gleichzeitig auf.
+To everyone in the room it looks like an ordinary game: real cards, a host
+reading out numbers. Only the draw order is fixed in advance, and every card is
+built so that it has bingo on one particular draw — the same one for all of
+them. Over the last few rounds one guest after another notices they are a single
+number short. Then it falls, and the whole room rises at once.
 
-Gedacht für Familienfeiern: Goldene Hochzeit, Hochzeit, Kindergeburtstag,
-Firmenfeier. Niemand wird bevorzugt, es gibt keinen Verlierer — der „Preis" ist
-etwas, das ohnehin für alle da ist.
+Made for family occasions: a golden wedding, a wedding, a children's birthday, a
+company party. Nobody is favoured and there is no loser — the "prize" is
+something that was there for everyone anyway.
 
-**Nicht** gedacht für Verlosungen mit Geldeinsatz.
+**Not** made for raffles played for money.
 
-## Stand
+## Status
 
-Vollständig benutzbar: Generator, Druckausgabe und Ziehungsapp für den Beamer.
-Was noch offen ist, steht in [docs/roadmap.md](docs/roadmap.md).
+Fully usable: generator, print output and the projector draw app. Available in
+German and English. What is still open is in [docs/roadmap.md](docs/roadmap.md).
 
-## Ausprobieren
+## Try it
 
-Die [Website](https://hydr.github.io/bingo-coup/) läuft komplett im Browser —
-ohne Anmeldung, ohne Server. Lokal:
+The [site](https://hydr.github.io/bingo-coup/) runs entirely in the browser —
+no sign-up, no server. Locally:
 
 ```bash
 npm install
-npm run dev        # Website unter http://localhost:5173
+npm run dev        # site at http://localhost:5173
 ```
 
-Im Probelauf zieht man den Regler durch die Ziehung und sieht, wie bis zur
-vorletzten Zahl niemand Bingo hat — und dann alle auf einmal.
+In the dry run you drag a slider through the draw and watch how nobody has bingo
+up to the second-to-last number — and then everybody does.
 
-Für den Abend selbst führt „Ziehung am Beamer starten" in die Vollbildansicht:
-große Zahl, Trommelwirbel, Tafel mit allen gezogenen Zahlen. Der Link dorthin
-enthält den ganzen Plan — man kann ihn auf das Gerät am Beamer schicken und
-bekommt dort garantiert dieselbe Reihenfolge wie auf dem Ausdruck.
+For the evening itself, "Run the draw on a projector" opens a fullscreen view:
+one big number, a drum roll, a board of everything drawn so far. The link to it
+carries the whole plan, so you can send it to the machine at the projector and
+are guaranteed the same order that is on your printout.
 
-Bedienung: Leertaste oder Klick zieht, Pfeil links nimmt zurück, `F` schaltet
-Vollbild, `Esc` führt zurück zum Generator.
+Controls: space or a click draws, left arrow takes one back, `F` toggles
+fullscreen, `Esc` returns to the generator.
 
 ```bash
-npm test           # 91 Unit-Tests
-npm run test:e2e   # 17 Playwright-Tests der Oberfläche
-npm run demo 60 25 # Spielplan im Terminal, ohne Browser
-npm run range      # welche Gewinnzeitpunkte tragen 80 Gäste?
+npm test           # 92 unit tests
+npm run test:e2e   # 21 Playwright tests of the interface
+npm run demo 60 25 # a plan in the terminal, no browser needed
+npm run range      # which win times can furnish 80 guests?
 ```
 
-## Wie es funktioniert
+## How it works
 
 ```ts
 import { generatePlan } from './src/core/index.js'
 
 const plan = generatePlan({
-  cardCount: 60,   // Gäste
-  winAt: 25,       // Bingo bei der 26. Ziehung (0-basiert)
-  seed: 20260906,  // gleicher Seed = exakt dieselben Karten
+  cardCount: 60,   // guests
+  winAt: 25,       // bingo on the 26th draw (zero-based)
+  seed: 20260906,  // the same seed returns exactly the same cards
 })
 
-plan.drawOrder    // in genau dieser Reihenfolge vorlesen
-plan.winningItem  // diese Zahl löst den ganzen Saal aus
-plan.cards        // eine Karte je Gast
+plan.drawOrder    // read out in exactly this order
+plan.winningItem  // the number that sets off the whole room
+plan.cards        // one card per guest
 ```
 
-Standard sind die klassischen Regeln: 5×5, Zahlen 1–75, B-I-N-G-O-Spalten,
-freies Mittelfeld. Daneben gibt es einen offenen Regelsatz (1–80, ohne
-Spaltenbindung) und ein 3×3-Feld für Kinder.
+The default is the classic ruleset: 5×5, numbers 1–75, B-I-N-G-O columns, free
+centre. Alongside it there is an open ruleset (1–80, no column ranges) and a 3×3
+grid for children.
 
-## Herkunft
+## Origin
 
-`Bingo.py` ist der ursprüngliche Prototyp aus dem Jahr 2011, gebaut für eine
-Goldene Hochzeit. Er liegt unverändert im Repo.
+`Bingo.py` is the original prototype from 2011, written for a golden wedding. It
+is still in the repository, untouched.
 
-## Lizenz
+## Licence
 
 MIT

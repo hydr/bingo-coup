@@ -1,14 +1,16 @@
 <script lang="ts">
   import type { Plan } from '../../core/types.js'
+  import type { Messages } from '../i18n/index.js'
 
   interface Props {
     plan: Plan
     guests: number
+    t: Messages
   }
 
-  let { plan, guests }: Props = $props()
+  let { plan, guests, t }: Props = $props()
 
-  /** Die Ziehung in Zehnerblöcken, damit der Moderator die Zeile hält. */
+  /** The draw in blocks of ten, so the host can hold their place in the line. */
   const rows = $derived(
     Array.from({ length: Math.ceil(plan.drawOrder.length / 10) }, (_, i) => ({
       from: i * 10 + 1,
@@ -16,28 +18,23 @@
     })),
   )
 
-  /** 1-basierte Nummer der auslösenden Ziehung — so zählt ein Mensch. */
+  /** The one-based number of the triggering draw — how a person counts. */
   const winNumber = $derived(plan.winAt + 1)
 </script>
 
 <section class="host-sheet" data-testid="host-sheet">
-  <h2>Moderatorenblatt</h2>
-  <p class="muted small">
-    {guests} Karten &middot; Bingo bei der {winNumber}. Ziehung &middot; Seed {plan.seed}
-  </p>
+  <h2>{t.host.heading}</h2>
+  <p class="muted small">{t.host.meta(guests, winNumber, plan.seed)}</p>
 
   <div class="cue" data-testid="cue">
-    <strong>Regie:</strong> Nach der Zahl
+    <strong>{t.host.cueLabel}</strong>
+    {t.host.cueBefore}
     <span class="cue-number" data-testid="winning-item">{plan.winningItem.label}</span>
-    &mdash; das ist die {winNumber}. Ziehung &mdash; haben alle {guests} Gäste
-    gleichzeitig Bingo. Ab hier den Preis verteilen bzw. auspacken lassen.
+    {t.host.cue(guests, winNumber)}
   </div>
 
-  <h3>Ziehungsreihenfolge</h3>
-  <p class="muted small">
-    Genau in dieser Reihenfolge vorlesen. Wird eine Zahl übersprungen oder
-    vertauscht, gewinnt niemand gleichzeitig.
-  </p>
+  <h3>{t.host.drawHeading}</h3>
+  <p class="muted small">{t.host.drawHint}</p>
 
   <table class="draw-table">
     <tbody>

@@ -1,25 +1,25 @@
 import { cellCount, fitsColumn, freeIndex, lines } from './rules.js'
 import type { Card, Item, Ruleset } from './types.js'
 
-/** Nachschlagetabelle: Element-Id -> Position in der Ziehungsreihenfolge. */
+/** Lookup table: item id -> position in the draw order. */
 export type DrawPositions = ReadonlyMap<number, number>
 
 export function drawPositions(drawOrder: readonly Item[]): DrawPositions {
   return new Map(drawOrder.map((item, index) => [item.id, index]))
 }
 
-/** Nie gezogene Elemente liegen jenseits jeder Ziehung. */
+/** Items that are never drawn lie beyond every draw. */
 const NEVER = Number.POSITIVE_INFINITY
 
 function positionOf(cell: Item | null, positions: DrawPositions): number {
-  // Das freie Mittelfeld gilt von der ersten Sekunde an als getroffen.
+  // The free centre counts as hit from the very first second.
   if (cell === null) return -1
   return positions.get(cell.id) ?? NEVER
 }
 
 /**
- * Ziehungsindex, bei dem diese Linie vollstaendig wird — also die spaeteste
- * ihrer Zellen. `Infinity`, wenn sie nie vollstaendig wird.
+ * The draw index at which this line becomes complete — that is, its latest
+ * cell. `Infinity` if it never completes.
  */
 export function lineCompletesAt(
   card: Card,
@@ -38,9 +38,9 @@ export function lineCompletesAt(
 }
 
 /**
- * Der Ziehungsindex, bei dem die Karte Bingo hat — die frueheste vollstaendige
- * Linie. Das ist die zentrale Groesse des ganzen Projekts: Alle Karten eines
- * Plans muessen hier denselben Wert liefern.
+ * The draw index at which the card has bingo — its earliest complete line.
+ * This is the central quantity of the whole project: every card in a plan has
+ * to return the same value here.
  */
 export function winIndexOf(
   card: Card,
@@ -56,7 +56,7 @@ export function winIndexOf(
   return earliest
 }
 
-/** Trefferbild nach `drawn` Ziehungen — fuer Vorschau und Tests. */
+/** Which squares are marked after `drawn` draws — for preview and tests. */
 export function hitsAfter(
   card: Card,
   positions: DrawPositions,
@@ -65,7 +65,7 @@ export function hitsAfter(
   return card.cells.map((cell) => positionOf(cell ?? null, positions) < drawn)
 }
 
-/** Anzahl Treffer nach `drawn` Ziehungen, das freie Feld eingerechnet. */
+/** How many squares are marked after `drawn` draws, free centre included. */
 export function hitCountAfter(
   card: Card,
   positions: DrawPositions,
@@ -74,19 +74,19 @@ export function hitCountAfter(
   return hitsAfter(card, positions, drawn).filter(Boolean).length
 }
 
-/** Signatur zum Erkennen doppelter Karten. */
+/** Signature for spotting duplicate cards. */
 export function signatureOf(card: Card): string {
   return card.cells.map((cell) => (cell === null ? 'F' : cell.id)).join(',')
 }
 
 /**
- * Prueft die strukturellen Invarianten einer Karte. Wirft mit klarer Meldung,
- * damit ein Generatorfehler nicht erst auf dem gedruckten Papier auffaellt.
+ * Checks the structural invariants of a card. Throws with a clear message so
+ * that a generator bug does not first show up on printed paper.
  */
 export function assertCardValid(card: Card, ruleset: Ruleset): void {
   const expected = cellCount(ruleset)
   if (card.cells.length !== expected) {
-    throw new Error(`Karte ${card.id}: ${card.cells.length} statt ${expected} Felder.`)
+    throw new Error(`Card ${card.id}: ${card.cells.length} squares instead of ${expected}.`)
   }
 
   const free = freeIndex(ruleset)
@@ -96,21 +96,21 @@ export function assertCardValid(card: Card, ruleset: Ruleset): void {
     const cell = card.cells[i]!
 
     if (i === free) {
-      if (cell !== null) throw new Error(`Karte ${card.id}: Mittelfeld ist nicht frei.`)
+      if (cell !== null) throw new Error(`Card ${card.id}: the centre is not free.`)
       continue
     }
     if (cell === null) {
-      throw new Error(`Karte ${card.id}: Feld ${i} ist leer, obwohl es kein freies Feld ist.`)
+      throw new Error(`Card ${card.id}: square ${i} is empty but is not the free centre.`)
     }
     if (seen.has(cell.id)) {
-      throw new Error(`Karte ${card.id}: Element ${cell.label} kommt mehrfach vor.`)
+      throw new Error(`Card ${card.id}: item ${cell.label} appears more than once.`)
     }
     seen.add(cell.id)
 
     const col = i % ruleset.cols
     if (!fitsColumn(ruleset, cell, col)) {
       throw new Error(
-        `Karte ${card.id}: ${cell.label} steht in Spalte ${col}, gehoert dort aber nicht hin.`,
+        `Card ${card.id}: ${cell.label} sits in column ${col}, where it does not belong.`,
       )
     }
   }

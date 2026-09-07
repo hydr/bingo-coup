@@ -2,23 +2,23 @@
   import { hitsAfter, type DrawPositions } from '../../core/card.js'
   import { freeIndex } from '../../core/rules.js'
   import type { Card, Ruleset } from '../../core/types.js'
+  import type { Messages } from '../i18n/index.js'
 
   interface Props {
     card: Card
     ruleset: Ruleset
     positions: DrawPositions
-    /** Anzahl bereits gezogener Elemente. */
+    t: Messages
+    /** How many items have been drawn. */
     drawn: number
-    /** Zeigt die Gewinnlinie farblich an — nur für die Vorschau, nie im Druck. */
+    /** Colours in the winning line — preview only, never in print. */
     reveal?: boolean
-    /** Gewinnlinie als flache Zellindizes, nötig wenn `reveal` gesetzt ist. */
+    /** The winning line as flat cell indices; needed when `reveal` is set. */
     winningCells?: readonly number[]
-    /** Begriffe brauchen kleinere Schrift als Zahlen. */
-    words?: boolean
     /**
-     * Aufdruck oben rechts. `null` laesst ihn weg — wichtig, denn auf den
-     * Tischen darf der Produktname nicht auftauchen: Er wuerde die
-     * Ueberraschung verraten, und fremde Werbung will kein Gastgeber.
+     * The imprint in the top right. `null` leaves it out — which matters,
+     * because the product name must not appear on the tables: it would give
+     * the surprise away, and no host wants somebody else's advertising.
      */
     brand?: string | null
   }
@@ -27,10 +27,10 @@
     card,
     ruleset,
     positions,
+    t,
     drawn,
     reveal = false,
     winningCells = [],
-    words = false,
     brand = null,
   }: Props = $props()
 
@@ -41,7 +41,7 @@
 
 <div class="card" data-testid="card" data-card-id={card.id}>
   <div class="card-head">
-    <span>Karte {card.id}</span>
+    <span>{t.card.label(card.id)}</span>
     {#if brand}<span>{brand}</span>{/if}
   </div>
 
@@ -49,7 +49,7 @@
     class="grid"
     style="grid-template-columns: repeat({ruleset.cols}, 1fr)"
     role="table"
-    aria-label="Bingokarte {card.id}"
+    aria-label={t.card.aria(card.id)}
   >
     {#if ruleset.columnLabels}
       {#each ruleset.columnLabels as label (label)}
@@ -63,11 +63,10 @@
         class:free={idx === free}
         class:hit={hits[idx]}
         class:winner={winners.has(idx)}
-        class:words={words && idx !== free}
         data-testid="cell"
         data-hit={hits[idx] ? 'true' : 'false'}
       >
-        {cell === null ? 'FREI' : cell.label}
+        {cell === null ? t.card.free : cell.label}
       </div>
     {/each}
   </div>

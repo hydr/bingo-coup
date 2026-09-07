@@ -1,6 +1,6 @@
 import type { Item, Ruleset } from './types.js'
 
-/** Flacher Index einer Zelle. */
+/** Flat index of a cell. */
 export function cellIndex(ruleset: Ruleset, row: number, col: number): number {
   return row * ruleset.cols + col
 }
@@ -9,23 +9,23 @@ export function cellCount(ruleset: Ruleset): number {
   return ruleset.rows * ruleset.cols
 }
 
-/** Index des freien Mittelfelds, oder -1. */
+/** Index of the free centre square, or -1. */
 export function freeIndex(ruleset: Ruleset): number {
   if (!ruleset.freeCenter) return -1
   if (ruleset.rows % 2 === 0 || ruleset.cols % 2 === 0) return -1
   return cellIndex(ruleset, (ruleset.rows - 1) / 2, (ruleset.cols - 1) / 2)
 }
 
-/**
- * Alle Gewinnlinien als flache Zellindizes: Zeilen, Spalten und — bei
- * quadratischem Feld — beide Diagonalen.
- *
- * Achtung fuer alles Weitere: Linien durch das freie Mittelfeld brauchen eine
- * echte Zelle weniger und werden dadurch leichter komplett. Genau das ist die
- * Stelle, an der ungewollt verfruehte Bingos entstehen.
- */
 const lineCache = new WeakMap<Ruleset, readonly (readonly number[])[]>()
 
+/**
+ * Every winning line as flat cell indices: rows, columns and — on a square
+ * grid — both diagonals.
+ *
+ * Worth keeping in mind downstream: lines through the free centre need one real
+ * square less and therefore complete more easily. That is exactly where
+ * unwanted early bingos come from.
+ */
 export function lines(ruleset: Ruleset): readonly (readonly number[])[] {
   const cached = lineCache.get(ruleset)
   if (cached) return cached
@@ -48,14 +48,14 @@ export function lines(ruleset: Ruleset): readonly (readonly number[])[] {
   return result
 }
 
-/** Spalte, zu der ein flacher Zellindex gehoert. */
+/** The column a flat cell index belongs to. */
 export function columnOf(ruleset: Ruleset, index: number): number {
   return index % ruleset.cols
 }
 
 /**
- * Erlaubter Zahlenbereich einer Spalte, als [von, bis] inklusive und 1-basiert.
- * Ohne Spaltenbindung ist das immer der gesamte Pool.
+ * The range of numbers allowed in a column, as [from, to] inclusive and
+ * one-based. Without column ranges that is always the whole pool.
  */
 export function columnRange(ruleset: Ruleset, col: number): [number, number] {
   if (!ruleset.columnRanges) return [1, ruleset.poolSize]
@@ -65,7 +65,7 @@ export function columnRange(ruleset: Ruleset, col: number): [number, number] {
   return [from, to]
 }
 
-/** Die Standard-Elemente eines Regelsatzes: die Zahlen 1..poolSize. */
+/** The default items of a ruleset: the numbers 1..poolSize. */
 export function numberItems(ruleset: Ruleset): Item[] {
   return Array.from({ length: ruleset.poolSize }, (_, i) => ({
     id: i + 1,
@@ -74,42 +74,42 @@ export function numberItems(ruleset: Ruleset): Item[] {
 }
 
 /**
- * Elemente aus Begriffen — fuer Begriffe-Bingo. Die Reihenfolge der Begriffe
- * ist die Reihenfolge, in der sie spaeter "gezogen" werden koennen; die
- * Gewinnlogik behandelt sie exakt wie Zahlen.
+ * Items from arbitrary labels. Not a product feature — the interface only ever
+ * offers numbers — but it keeps the promise that the win logic never reads
+ * `label`, and the tests lean on it.
  */
 export function labelItems(labels: readonly string[]): Item[] {
   return labels.map((label, i) => ({ id: i + 1, label }))
 }
 
-/** Darf `item` in Spalte `col` stehen? */
+/** May `item` sit in column `col`? */
 export function fitsColumn(ruleset: Ruleset, item: Item, col: number): boolean {
   if (!ruleset.columnRanges) return true
   const [from, to] = columnRange(ruleset, col)
   return item.id >= from && item.id <= to
 }
 
-/** Prueft, ob ein Regelsatz ueberhaupt spielbar ist. */
+/** Checks whether a ruleset can be played at all. */
 export function validateRuleset(ruleset: Ruleset): void {
   const needed = cellCount(ruleset) - (freeIndex(ruleset) >= 0 ? 1 : 0)
   if (ruleset.poolSize < needed) {
     throw new Error(
-      `Zahlenraum zu klein: ${ruleset.poolSize} Elemente fuer ${needed} Felder.`,
+      `Pool too small: ${ruleset.poolSize} items for ${needed} squares.`,
     )
   }
   if (ruleset.columnRanges) {
     const perColumn = Math.floor(ruleset.poolSize / ruleset.cols)
     if (perColumn < ruleset.rows) {
       throw new Error(
-        `Spaltenbindung unmoeglich: nur ${perColumn} Zahlen je Spalte ` +
-          `fuer ${ruleset.rows} Felder.`,
+        `Column ranges impossible: only ${perColumn} numbers per column ` +
+          `for ${ruleset.rows} squares.`,
       )
     }
   }
   if (ruleset.freeCenter && freeIndex(ruleset) < 0) {
-    throw new Error('Freies Mittelfeld braucht eine ungerade Kantenlaenge.')
+    throw new Error('A free centre square needs an odd edge length.')
   }
   if (ruleset.columnLabels && ruleset.columnLabels.length !== ruleset.cols) {
-    throw new Error('Anzahl Spaltenueberschriften passt nicht zur Spaltenzahl.')
+    throw new Error('The number of column headings does not match the column count.')
   }
 }

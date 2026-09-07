@@ -4,11 +4,11 @@ on:
   push:
     branches: [master]
   pull_request:
-  # Erlaubt einen Deploy von Hand, ohne Commit.
+  # Allows a deploy by hand, without a commit.
   workflow_dispatch:
 
-# Nur ein Deploy zur Zeit; laufende nicht abbrechen, damit eine Seite nicht
-# halb veroeffentlicht liegen bleibt.
+# One deploy at a time, and never cancel a running one — a half-published site
+# is worse than a slightly stale one.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -25,10 +25,10 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - name: Playwright-Browser holen
+      - name: Fetch the Playwright browser
         run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - name: Testbericht bei Fehlschlag mitnehmen
+      - name: Keep the test report on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
@@ -37,7 +37,7 @@ jobs:
           retention-days: 7
 
   deploy:
-    # Veroeffentlicht wird nur, was gruen ist.
+    # Only what is green gets published.
     needs: test
     if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest

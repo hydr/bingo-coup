@@ -1,58 +1,60 @@
 /**
- * Datenmodell.
+ * Data model.
  *
- * Zentrale Entscheidung: Eine Zelle traegt kein `number`, sondern ein `Item`
- * mit Beschriftung. Dadurch teilen Zahlen-Bingo ("47") und Begriffe-Bingo
- * ("Jemand weint") dieselbe Gewinnlogik — die arbeitet ausschliesslich auf
- * Positionen und Ziehungsindizes, nie auf dem Inhalt.
+ * The central decision: a cell carries an `Item` with a label rather than a
+ * number. That keeps display and win logic apart — the logic works purely on
+ * positions and draw indices and never looks at `label`. It is what lets the
+ * same code serve numbers, the 3x3 kids grid and the open ruleset.
  */
 
-/** Ein ziehbares Element. `id` ist die Identitaet, `label` nur Darstellung. */
+/** Something that can be drawn. `id` is the identity, `label` only display. */
 export interface Item {
   readonly id: number
   readonly label: string
 }
 
-/** Zellinhalt. `null` ist das freie Mittelfeld und gilt immer als getroffen. */
+/** Cell content. `null` is the free centre and always counts as hit. */
 export type Cell = Item | null
 
-/** Spielregeln. Alles daran ist Konfiguration, damit wir bei zu engem
- *  Spielraum abschalten koennen statt umzubauen. */
+/**
+ * The rules of the game. Everything here is configuration so that a ruleset
+ * that turns out too tight can be switched rather than rebuilt.
+ */
 export interface Ruleset {
   readonly rows: number
   readonly cols: number
-  /** Anzahl ziehbarer Elemente insgesamt. */
+  /** How many items can be drawn in total. */
   readonly poolSize: number
-  /** B-I-N-G-O: jede Spalte hat ihren eigenen Zahlenbereich. */
+  /** B-I-N-G-O: every column has its own range of numbers. */
   readonly columnRanges: boolean
-  /** Freies Mittelfeld (nur bei ungerader Kantenlaenge sinnvoll). */
+  /** Free centre square (only meaningful with an odd edge length). */
   readonly freeCenter: boolean
-  /** Spaltenueberschriften, z.B. B I N G O. */
+  /** Column headings, e.g. B I N G O. */
   readonly columnLabels: readonly string[] | null
 }
 
 export interface Card {
   readonly id: number
-  /** Zeilenweise, Laenge rows * cols. */
+  /** Row by row, length rows * cols. */
   readonly cells: readonly Cell[]
-  /** Welche Linie (Index in `lines(ruleset)`) zum Gewinn fuehrt. */
+  /** Which line (index into `lines(ruleset)`) wins. */
   readonly winningLine: number
 }
 
-/** Ein vollstaendiger Spielplan — alles, was fuer einen Abend gebraucht wird. */
+/** A complete plan — everything an evening needs. */
 export interface Plan {
   readonly ruleset: Ruleset
   readonly seed: number
-  /** Feste, vorbestimmte Ziehungsreihenfolge. Ohne sie kein Gleichzeitigkeit. */
+  /** The fixed, predetermined draw order. Without it, no simultaneity. */
   readonly drawOrder: readonly Item[]
   readonly cards: readonly Card[]
-  /** Index in `drawOrder`, bei dem alle Karten gewinnen (0-basiert). */
+  /** Index into `drawOrder` at which every card wins (zero-based). */
   readonly winAt: number
-  /** Das Element, das den Saal ausloest. Ergibt sich aus `winAt`. */
+  /** The item that sets off the room. Follows from `winAt`. */
   readonly winningItem: Item
 }
 
-/** Klassisches Bingo: 5x5, 1-75, B-I-N-G-O-Spalten, freies Mittelfeld. */
+/** Classic bingo: 5x5, 1-75, B-I-N-G-O columns, free centre. */
 export const CLASSIC: Ruleset = {
   rows: 5,
   cols: 5,
@@ -62,8 +64,10 @@ export const CLASSIC: Ruleset = {
   columnLabels: ['B', 'I', 'N', 'G', 'O'],
 }
 
-/** Wie der urspruengliche Prototyp: 5x5, 1-80, keine Spaltenbindung,
- *  kein freies Feld. Fallback, falls CLASSIC zu wenig Spielraum laesst. */
+/**
+ * Like the original prototype: 5x5, 1-80, no column ranges, no free centre.
+ * Kept as a fallback in case CLASSIC ever leaves too little room.
+ */
 export const OPEN_80: Ruleset = {
   rows: 5,
   cols: 5,
@@ -73,7 +77,7 @@ export const OPEN_80: Ruleset = {
   columnLabels: null,
 }
 
-/** Kleines Feld fuer Kinder. */
+/** A small grid for children. */
 export const KIDS_3X3: Ruleset = {
   rows: 3,
   cols: 3,

@@ -12,50 +12,87 @@ import { createRng, randomSeed, type Rng } from './rng.js'
 import type { Card, Item, Plan, Ruleset } from './types.js'
 import { CLASSIC } from './types.js'
 
-/** Wie ein Feld belegt werden soll. */
+/** How a square is to be filled. */
 type Slot =
-  | 'free' // das freie Mittelfeld
-  | 'line' // Teil der Gewinnlinie
-  | 'early' // Element, das vor dem Gewinnzeitpunkt gezogen wird (Ablenkung)
-  | 'late' // Element, das erst danach gezogen wird (blockiert fremde Linien)
+  | 'free' // the free centre
+  | 'line' // part of the winning line
+  | 'early' // an item drawn before the win (a decoy)
+  | 'late' // an item drawn after it (blocks foreign lines)
 
 export interface CardOptions {
   /**
-   * Streut Treffer ausserhalb der Gewinnlinie ein, damit die Karte im
-   * Trefferbild von einer echten nicht zu unterscheiden ist.
+   * Scatters hits outside the winning line so the card is indistinguishable
+   * from an honest one.
    *
-   * Ohne das haette jede Karte zum Gewinnzeitpunkt exakt die Treffer ihrer
-   * Gewinnlinie und sonst nichts — was jedem Gast auffaellt, der auf den
-   * Zettel seines Nachbarn schaut.
+   * Without it, every card would carry exactly the hits of its winning line at
+   * the winning moment and nothing else — which any guest glancing at their
+   * neighbour's sheet would notice.
    */
   readonly naturalLook?: boolean
-  /** Abbruch nach so vielen Fehlversuchen fuer eine einzelne Karte. */
+  /** Give up on a single card after this many failed attempts. */
   readonly maxAttempts?: number
 }
 
 const DEFAULTS = { naturalLook: true, maxAttempts: 200 } as const
 
+/**
+ * Why generation failed. The interface translates these into something a host
+ * can read; the message itself stays technical and English.
+ */
+export type GenerationErrorCode =
+  | 'out-of-range' // the win time lies outside the draw
+  | 'too-early' // no line can be complete that early
+  | 'impossible' // nothing could be built for these settings
+  | 'pool-too-small' // not enough items for a card
+
 export class GenerationError extends Error {
-  constructor(message: string) {
+  readonly code: GenerationErrorCode
+  /** For 'too-early': the earliest win number these rules allow. */
+  readonly earliest?: number
+
+  constructor(code: GenerationErrorCode, message: string, earliest?: number) {
     super(message)
     this.name = 'GenerationError'
+    this.code = code
+    if (earliest !== undefined) this.earliest = earliest
   }
 }
 
 /**
- * Erzeugt eine Karte, die bei Ziehung `winAt` gewinnt — und keine Ziehung
- * frueher.
+ * The shortest winning line, counted in real squares. Lines through the free
+ * centre need one less, which is what makes an early win possible at all.
+ */
+export function shortestLine(ruleset: Ruleset): number {
+  const free = freeIndex(ruleset)
+  let shortest = Number.POSITIVE_INFINITY
+  for (const line of lines(ruleset)) {
+    const real = line.filter((idx) => idx !== free).length
+    if (real < shortest) shortest = real
+  }
+  return shortest
+}
+
+/**
+ * The earliest draw (one-based) at which anyone can win: a line of n real
+ * squares needs n numbers, the last of them being the one that sets it off.
+ */
+export function earliestWinNumber(ruleset: Ruleset): number {
+  return shortestLine(ruleset)
+}
+
+/**
+ * Builds a card that wins on draw `winAt` — and not one draw earlier.
  *
- * Aufbau in drei Schritten:
- *   1. Eine Gewinnlinie waehlen und mit frueh gezogenen Elementen fuellen; das
- *      Element von `winAt` schliesst sie ab.
- *   2. Fuer alle uebrigen Felder entscheiden, ob dort ein frueh oder spaet
- *      gezogenes Element steht. Jede fremde Linie braucht mindestens ein
- *      spaetes Feld, sonst gibt es ein verfruehtes Bingo.
- *   3. Konkrete Elemente zuweisen, spaltengerecht und ohne Wiederholung.
+ * Three steps:
+ *   1. Pick a winning line and fill it with items drawn early; the item of
+ *      `winAt` closes it.
+ *   2. For every remaining square, decide whether it holds an item drawn early
+ *      or late. Every foreign line needs at least one late square, otherwise
+ *      there is a premature bingo.
+ *   3. Assign concrete items, respecting columns and without repetition.
  *
- * Am Ende wird das Ergebnis unabhaengig nachgerechnet. Eine Karte, die den
- * Gewinnzeitpunkt verfehlt, verlaesst diese Funktion nicht.
+ * The result is then verified independently. A card that misses the win time
+ * does not leave this function.
  */
 export function buildCard(
   ruleset: Ruleset,
@@ -69,7 +106,8 @@ export function buildCard(
 
   if (winAt < 0 || winAt >= drawOrder.length) {
     throw new GenerationError(
-      `Gewinnzeitpunkt ${winAt} liegt ausserhalb der Ziehung (0..${drawOrder.length - 1}).`,
+      'out-of-range',
+      `Win time ${winAt} lies outside the draw (0..${drawOrder.length - 1}).`,
     )
   }
 
@@ -81,9 +119,8 @@ export function buildCard(
   const free = freeIndex(ruleset)
   const total = cellCount(ruleset)
 
-  // Nur Linien, die das ausloesende Element ueberhaupt aufnehmen koennen.
-  // Bei B-I-N-G-O-Spalten scheidet damit ein Grossteil der senkrechten Linien
-  // aus: Sie liegen im falschen Zahlenbereich.
+  // Only lines that can hold the triggering item at all. With B-I-N-G-O
+  // columns that rules out most vertical lines: they are in the wrong range.
   const candidates: number[] = []
   for (let i = 0; i < allLines.length; i++) {
     const usable = allLines[i]!.some(
@@ -93,11 +130,12 @@ export function buildCard(
   }
   if (candidates.length === 0) {
     throw new GenerationError(
-      `Kein Feld kann ${winningItem.label} aufnehmen — Regelsatz und Ziehung passen nicht zusammen.`,
+      'impossible',
+      `No square can hold ${winningItem.label} — ruleset and draw do not match.`,
     )
   }
 
-  let lastReason = 'unbekannt'
+  let lastReason = 'unknown'
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const result = tryBuild()
@@ -109,8 +147,9 @@ export function buildCard(
   }
 
   throw new GenerationError(
-    `Karte ${cardId} liess sich nach ${maxAttempts} Versuchen nicht bauen (${lastReason}). ` +
-      `Gewinnzeitpunkt ${winAt} ist fuer diesen Regelsatz vermutlich zu frueh oder zu spaet.`,
+    'impossible',
+    `Card ${cardId} could not be built in ${maxAttempts} attempts (${lastReason}). ` +
+      `Win time ${winAt} is probably too early or too late for this ruleset.`,
   )
 
   function tryBuild(): Card | string {
@@ -118,7 +157,7 @@ export function buildCard(
     const line = allLines[lineIdx]!
     const inLine = new Set(line)
 
-    // --- Schritt 1: Gewinnlinie -------------------------------------------
+    // --- Step 1: the winning line ----------------------------------------
     const cells: (Item | null)[] = new Array<Item | null>(total).fill(null)
     const used = new Set<number>()
 
@@ -133,13 +172,13 @@ export function buildCard(
       if (idx === free || idx === winCell) continue
       const col = columnOf(ruleset, idx)
       const pool = early.filter((it) => !used.has(it.id) && fitsColumn(ruleset, it, col))
-      if (pool.length === 0) return 'zu wenige frueh gezogene Elemente fuer die Gewinnlinie'
+      if (pool.length === 0) return 'too few early items for the winning line'
       const chosen = rng.pick(pool)
       cells[idx] = chosen
       used.add(chosen.id)
     }
 
-    // --- Schritt 2: frueh/spaet fuer alle uebrigen Felder ------------------
+    // --- Step 2: early or late for every remaining square -----------------
     const slots: Slot[] = new Array<Slot>(total)
     for (let i = 0; i < total; i++) {
       if (i === free) slots[i] = 'free'
@@ -148,7 +187,7 @@ export function buildCard(
     }
 
     if (naturalLook) {
-      // Trefferdichte einer echten Karte: jedes Feld ist mit p bereits getroffen.
+      // How dense hits are on an honest card: each square is hit with p.
       const p = winAt / drawOrder.length
       for (let i = 0; i < total; i++) {
         if (slots[i] === 'late' && rng.next() < p) slots[i] = 'early'
@@ -161,7 +200,7 @@ export function buildCard(
     const balanced = balanceAgainstSupply(slots, used, winCell)
     if (balanced !== null) return balanced
 
-    // --- Schritt 3: Elemente zuweisen -------------------------------------
+    // --- Step 3: assign items --------------------------------------------
     for (let col = 0; col < ruleset.cols; col++) {
       const earlyPool = rng.shuffled(
         early.filter((it) => !used.has(it.id) && fitsColumn(ruleset, it, col)),
@@ -178,34 +217,33 @@ export function buildCard(
         const chosen = slot === 'early' ? earlyPool.pop() : latePool.pop()
         if (chosen === undefined) {
           return slot === 'early'
-            ? 'zu wenige frueh gezogene Elemente fuer die Fuellfelder'
-            : 'zu wenige spaet gezogene Elemente fuer die Fuellfelder'
+            ? 'too few early items for the filler squares'
+            : 'too few late items for the filler squares'
         }
         cells[idx] = chosen
         used.add(chosen.id)
       }
     }
 
-    // --- Sicherheitsgurt: unabhaengig nachrechnen -------------------------
+    // --- The safety belt: verify independently ---------------------------
     const card: Card = { id: cardId, cells, winningLine: lineIdx }
     try {
       assertCardValid(card, ruleset)
     } catch (error) {
-      return `ungueltige Karte (${(error as Error).message})`
+      return `invalid card (${(error as Error).message})`
     }
     const actual = winIndexOf(card, ruleset, positions)
-    if (actual !== winAt) return `Gewinn bei Ziehung ${actual} statt ${winAt}`
+    if (actual !== winAt) return `wins on draw ${actual} instead of ${winAt}`
 
     return card
   }
 
   /**
-   * Sorgt dafuer, dass jede fremde Linie mindestens ein spaet gezogenes Feld
-   * enthaelt. Linien, die das ausloesende Element tragen, sind unkritisch: Sie
-   * werden fruehestens zum Gewinnzeitpunkt vollstaendig, nicht davor. Das gilt
-   * auch fuer die Gewinnlinie selbst.
+   * Makes sure every foreign line holds at least one late square. Lines that
+   * carry the triggering item are harmless: they complete at the win time at
+   * the earliest, never before. That includes the winning line itself.
    *
-   * Gibt `null` bei Erfolg zurueck, sonst den Grund des Scheiterns.
+   * Returns `null` on success, otherwise why it failed.
    */
   function repairSlots(slots: Slot[], winCell: number): string | null {
     for (let pass = 0; pass < total * 2; pass++) {
@@ -221,16 +259,16 @@ export function buildCard(
       if (dangerous === -1) return null
 
       const fixable = allLines[dangerous]!.filter((idx) => slots[idx] === 'early')
-      if (fixable.length === 0) return 'fremde Linie laesst sich nicht entschaerfen'
+      if (fixable.length === 0) return 'a foreign line cannot be defused'
       slots[rng.pick(fixable)] = 'late'
     }
-    return 'Entschaerfung der Linien konvergiert nicht'
+    return 'defusing the lines does not converge'
   }
 
   /**
-   * Gleicht die Maske an den tatsaechlichen Vorrat je Spalte ab. Sind zu wenige
-   * spaete Elemente vorhanden, muessen Felder auf "frueh" wechseln — und danach
-   * ist die Linienpruefung erneut faellig.
+   * Reconciles the plan with what is actually left per column. Too few late
+   * items means squares have to switch to early — and then the line check is
+   * due again.
    */
   function balanceAgainstSupply(
     slots: Slot[],
@@ -257,15 +295,15 @@ export function buildCard(
         }
 
         if (earlyCells.length + lateCells.length > earlySupply + lateSupply) {
-          return `Spalte ${col} hat zu wenige Elemente uebrig`
+          return `column ${col} has too few items left`
         }
 
-        // Zu viele "frueh" geplant: unkritisch, spaet ist immer sicher.
+        // Too many planned as early: harmless, late is always safe.
         for (let i = earlySupply; i < earlyCells.length; i++) {
           slots[earlyCells[i]!] = 'late'
           changed = true
         }
-        // Zu viele "spaet" geplant: umwidmen und danach erneut pruefen.
+        // Too many planned as late: repurpose, then check again.
         for (let i = lateSupply; i < lateCells.length; i++) {
           slots[lateCells[i]!] = 'early'
           changed = true
@@ -277,40 +315,51 @@ export function buildCard(
       const repaired = repairSlots(slots, winCell)
       if (repaired !== null) return repaired
     }
-    return 'Abgleich mit dem Elementvorrat konvergiert nicht'
+    return 'reconciling with the item supply does not converge'
   }
 }
 
 export interface PlanOptions extends CardOptions {
   readonly ruleset?: Ruleset
-  /** Anzahl Karten — also Gaeste. */
+  /** How many cards — that is, guests. */
   readonly cardCount: number
-  /** Ziehungsindex, bei dem gewonnen wird (0-basiert). */
+  /** The draw index that wins (zero-based). */
   readonly winAt: number
   readonly seed?: number
-  /** Eigene Elemente, z.B. Begriffe. Standard sind die Zahlen 1..poolSize. */
+  /** Custom items. Defaults to the numbers 1..poolSize. */
   readonly items?: readonly Item[]
   /**
-   * Abweichender Gewinnzeitpunkt je Karte — fuer die Welle (tischweise) oder
-   * zwei Gruppen. Ohne Angabe gewinnen alle gemeinsam.
+   * A different win time per card — for the wave across tables, or two groups.
+   * Without it, everybody wins together.
    */
   readonly winAtFor?: (cardIndex: number) => number
 }
 
 /**
- * Erzeugt einen vollstaendigen Spielplan: feste Ziehungsreihenfolge plus
- * Karten, die alle bei derselben Ziehung gewinnen.
+ * Builds a complete plan: a fixed draw order plus cards that all win on the
+ * same draw.
  *
- * Nebenbefund aus der Konstruktion, urspruenglich als eigene Ausbaustufe
- * geplant: Eine Karte gewinnt nur dann bei `winAt`, wenn das Element von
- * `winAt` auf ihr steht. Alle Karten teilen sich also zwangslaeufig dieselbe
- * ausloesende Zahl und haben davor bereits alle uebrigen Felder ihrer
- * Gewinnlinie getroffen. Die dramaturgisch staerkste Variante ist damit der
- * Normalfall und kein Zusatz.
+ * A by-product of the construction, originally planned as a separate feature:
+ * a card only wins on `winAt` if the item of `winAt` sits on it. So every card
+ * necessarily shares the same triggering number and has all the other squares
+ * of its winning line already marked. The strongest version dramatically is
+ * the normal case, not an addition.
  */
 export function generatePlan(options: PlanOptions): Plan {
   const ruleset = options.ruleset ?? CLASSIC
   validateRuleset(ruleset)
+
+  const earliest = earliestWinNumber(ruleset)
+  if (options.winAt + 1 < earliest) {
+    // Answer this from the rules rather than by failing 25 shuffles in a row:
+    // the interface can then say what would work.
+    throw new GenerationError(
+      'too-early',
+      `A winning line needs at least ${earliest} numbers, so draw ` +
+        `${options.winAt + 1} cannot win.`,
+      earliest,
+    )
+  }
 
   const seed = options.seed ?? randomSeed()
   const rng = createRng(seed)
@@ -318,17 +367,17 @@ export function generatePlan(options: PlanOptions): Plan {
   const items = options.items ?? numberItems(ruleset)
   if (items.length < ruleset.poolSize) {
     throw new GenerationError(
-      `Zu wenige Elemente: ${items.length} fuer einen Pool von ${ruleset.poolSize}.`,
+      'pool-too-small',
+      `Too few items: ${items.length} for a pool of ${ruleset.poolSize}.`,
     )
   }
 
   const winAtFor = options.winAtFor ?? (() => options.winAt)
 
-  // Nicht jede Ziehungsreihenfolge traegt jeden Gewinnzeitpunkt. Bei fruehen
-  // Zeitpunkten kann eine ganze B-I-N-G-O-Spalte in den ersten Ziehungen leer
-  // ausgehen — dann laesst sich keine Gewinnlinie mehr fuellen. Da wir die
-  // Reihenfolge selbst festlegen, ist das kein Grund aufzugeben: wir mischen
-  // neu. Der Seed bleibt dabei massgeblich, das Ergebnis reproduzierbar.
+  // Not every draw order carries every win time. With early win times a whole
+  // B-I-N-G-O column can go unseen in the first draws, leaving no winning line
+  // to fill. Since we set the order ourselves, that is no reason to give up:
+  // we reshuffle. The seed still decides, so the result stays reproducible.
   const maxShuffles = 25
   let lastError: GenerationError | null = null
 
@@ -342,7 +391,7 @@ export function generatePlan(options: PlanOptions): Plan {
       for (let i = 0; i < options.cardCount; i++) {
         let card: Card | null = null
 
-        // Doppelte Karten waeren kein Fehler, wirken am Tisch aber sofort falsch.
+        // Duplicate cards would not be a bug, but they look wrong at a table.
         for (let dedupe = 0; dedupe < 50; dedupe++) {
           const candidate = buildCard(ruleset, drawOrder, winAtFor(i), rng, i + 1, options)
           if (!seen.has(signatureOf(candidate))) {
@@ -352,8 +401,9 @@ export function generatePlan(options: PlanOptions): Plan {
         }
         if (card === null) {
           throw new GenerationError(
-            `Ab Karte ${i + 1} entstehen nur noch Wiederholungen — der Regelsatz ` +
-              `laesst nicht genug verschiedene Karten zu.`,
+            'impossible',
+            `From card ${i + 1} on, only repetitions come out — the ruleset does ` +
+              `not allow enough different cards.`,
           )
         }
 
@@ -376,17 +426,18 @@ export function generatePlan(options: PlanOptions): Plan {
   }
 
   throw new GenerationError(
-    `Auch nach ${maxShuffles} Ziehungsreihenfolgen liess sich kein Plan bauen. ` +
-      `Zuletzt: ${lastError?.message ?? 'unbekannt'}`,
+    'impossible',
+    `No plan could be built in ${maxShuffles} draw orders. ` +
+      `Last: ${lastError?.message ?? 'unknown'}`,
   )
 }
 
 /**
- * Eine ehrliche Zufallskarte — ohne jede Vorgabe zum Gewinnzeitpunkt.
+ * An honest random card — with no constraint on when it wins.
  *
- * Wird an zwei Stellen gebraucht: fuer den Modus "normales Bingo" und als
- * Vergleichsmassstab in den Tests. Nur gegen echte Karten laesst sich
- * beurteilen, ob eine praeparierte Karte unauffaellig aussieht.
+ * Needed in two places: for the "ordinary bingo" mode, and as the yardstick in
+ * the tests. Only against honest cards can we judge whether a prepared one
+ * looks inconspicuous.
  */
 export function randomCard(
   ruleset: Ruleset,
@@ -408,7 +459,7 @@ export function randomCard(
       if (idx === free) continue
       const chosen = pool.pop()
       if (chosen === undefined) {
-        throw new GenerationError(`Spalte ${col} hat zu wenige Elemente.`)
+        throw new GenerationError('pool-too-small', `Column ${col} has too few items.`)
       }
       cells[idx] = chosen
       used.add(chosen.id)

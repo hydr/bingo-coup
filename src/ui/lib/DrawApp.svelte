@@ -2,14 +2,16 @@
   import { onMount } from 'svelte'
   import { generatePlan } from '../../core/generator.js'
   import type { Item, Plan } from '../../core/types.js'
+  import type { Messages } from '../i18n/index.js'
   import { rulesetOf, type PlanParams } from './planParams.js'
 
   interface Props {
     params: PlanParams
+    t: Messages
     onExit: () => void
   }
 
-  let { params, onExit }: Props = $props()
+  let { params, t, onExit }: Props = $props()
 
   const ruleset = $derived(rulesetOf(params.rulesetKey))
 
@@ -29,17 +31,17 @@
 
   const plan = $derived(result.plan)
 
-  /** Wie viele Zahlen bereits aufgedeckt sind. */
+  /** How many numbers have been revealed. */
   let drawn = $state(0)
-  /** Läuft der Trommelwirbel? Solange blockiert die Weiterschaltung. */
+  /** Is the drum roll running? */
   let rolling = $state(false)
-  /** Was während des Wirbels durchrollt — nie die echte Zahl. */
+  /** What rolls past during the roll — never the real number. */
   let rollingLabel = $state('')
   let dark = $state(true)
   let showBoard = $state(true)
-  /** Wird beim Abbau falsch, damit ein laufender Wirbel nicht weiterlaeuft. */
+  /** Goes false on teardown so a running roll does not carry on. */
   let alive = true
-  /** Zaehlt die Wirbel mit, damit ein abgebrochener nicht nachtraeglich zuschlaegt. */
+  /** Counts the rolls so an abandoned one cannot land after the fact. */
   let rollId = 0
 
   const current = $derived(plan && drawn > 0 ? plan.drawOrder[drawn - 1]! : null)
@@ -50,9 +52,9 @@
   const done = $derived(!!plan && drawn >= plan.drawOrder.length)
 
   /**
-   * Der Moment, auf den alles hinausläuft — die nächste Zahl löst den Saal aus.
-   * Diese Anzeige ist bewusst klein und gedeckt: Der Moderator sitzt am Rechner
-   * und liest sie, aus zehn Metern auf der Projektion ist sie unlesbar.
+   * The moment everything leads up to — the next number sets off the room.
+   * This is deliberately small and muted: the host sits at the machine and can
+   * read it, while from ten metres on the projection it is illegible.
    */
   const cueNext = $derived(!!plan && drawn === params.winNumber - 1)
   const cueNow = $derived(!!plan && drawn === params.winNumber)
@@ -63,9 +65,9 @@
   function next() {
     if (!plan || done) return
 
-    // Ein Klick waehrend des Wirbels kuerzt ihn ab, statt ins Leere zu gehen.
-    // Wer nachklickt, weil es ihm zu langsam geht, will die Zahl sehen — nicht
-    // einen verschluckten Klick.
+    // A click during the roll shortens it instead of being swallowed. Someone
+    // clicking again out of impatience wants to see the number, not to lose
+    // the click.
     if (rolling) {
       settle()
       return
@@ -76,9 +78,9 @@
       return
     }
 
-    // Trommelwirbel: Zufallszahlen aus dem Pool rollen durch und werden
-    // langsamer, bis die echte Zahl steht. Das verkauft den Zufall — und ist
-    // der Grund, warum niemand die feste Reihenfolge hinterfragt.
+    // The drum roll: random numbers from the pool roll past and slow down
+    // until the real one stands. That is what sells the randomness — and why
+    // nobody questions the fixed order.
     rolling = true
     const mine = ++rollId
     const pool = plan.drawOrder
@@ -94,14 +96,14 @@
           return
         }
         rollingLabel = pool[Math.floor(Math.random() * pool.length)]!.label
-        // Von 55 ms auf 190 ms auslaufen lassen.
+        // Ease out from 55 ms to 190 ms.
         step(55 + (elapsed / total) ** 2 * 135)
       }, delay)
     }
     step(0)
   }
 
-  /** Beendet den Wirbel und deckt die echte Zahl auf. */
+  /** Ends the roll and reveals the real number. */
   function settle() {
     rollId += 1
     rolling = false
@@ -124,7 +126,7 @@
       if (document.fullscreenElement) await document.exitFullscreen()
       else await document.documentElement.requestFullscreen()
     } catch {
-      // Vollbild kann der Browser verweigern; die App bleibt benutzbar.
+      // The browser may refuse fullscreen; the app stays usable either way.
     }
   }
 
@@ -150,7 +152,7 @@
     }
   })
 
-  /** Die Tafel zeigt alle Zahlen des Pools, gezogene hervorgehoben. */
+  /** The board shows every number in the pool, drawn ones highlighted. */
   const board = $derived.by(() => {
     if (!plan) return [] as { item: Item; hit: boolean }[]
     const seen = new Set(plan.drawOrder.slice(0, drawn).map((i) => i.id))
@@ -164,16 +166,16 @@
   {#if result.error}
     <div class="fail">
       <p>{result.error}</p>
-      <button onclick={onExit}>Zurück</button>
+      <button onclick={onExit}>{t.draw.exit}</button>
     </div>
   {:else if plan}
-    <!-- Die ganze Fläche schaltet weiter: Der Moderator muss im abgedunkelten
-         Saal nichts treffen müssen. -->
+    <!-- The whole surface advances the draw: in a dimmed room the host should
+         not have to hit anything. -->
     <button
       class="tap"
       onclick={next}
       disabled={done}
-      aria-label="Nächste Zahl ziehen"
+      aria-label={t.draw.nextLabel}
       data-testid="next"
     >
       <div class="numberbox">
@@ -182,7 +184,7 @@
         {:else if current}
           <span class="number" data-testid="current-number">{current.label}</span>
         {:else}
-          <span class="prompt" data-testid="current-number">Zum Starten tippen</span>
+          <span class="prompt" data-testid="current-number">{t.draw.startPrompt}</span>
         {/if}
       </div>
 
@@ -195,7 +197,7 @@
       {/if}
 
       {#if done}
-        <p class="prompt small-prompt">Alle Zahlen gezogen</p>
+        <p class="prompt small-prompt">{t.draw.allDrawn}</p>
       {/if}
     </button>
 
@@ -211,26 +213,30 @@
 
     <div class="bar">
       <span class="count" data-testid="progress">
-        Ziehung {drawn} von {plan.drawOrder.length}
+        {t.draw.progress(drawn, plan.drawOrder.length)}
       </span>
 
-      <!-- Regiehinweis, klein und gedeckt: lesbar am Rechner, nicht auf der
-           Projektion. Er darf den Gästen nichts verraten. -->
+      <!-- The host cue, small and muted: readable at the machine, not on the
+           projection. It must not give the guests anything away. -->
       {#if cueNext}
-        <span class="cue" data-testid="cue-next">nächste Zahl löst alle aus</span>
+        <span class="cue" data-testid="cue-next">{t.draw.cueNext}</span>
       {:else if cueNow}
-        <span class="cue strong" data-testid="cue-now">jetzt: alle haben Bingo</span>
+        <span class="cue strong" data-testid="cue-now">{t.draw.cueNow}</span>
       {/if}
 
       <span class="keys">
-        <button class="link" onclick={back} disabled={rolling || drawn === 0}>zurück</button>
-        <button class="link" onclick={reset} disabled={rolling || drawn === 0} data-testid="reset">
-          neu
+        <button class="link" onclick={back} disabled={rolling || drawn === 0} data-testid="back">
+          {t.draw.back}
         </button>
-        <button class="link" onclick={() => (showBoard = !showBoard)}>tafel</button>
-        <button class="link" onclick={() => (dark = !dark)} data-testid="toggle-dark">licht</button>
-        <button class="link" onclick={toggleFullscreen}>vollbild</button>
-        <button class="link" onclick={onExit} data-testid="exit">zurück zum Generator</button>
+        <button class="link" onclick={reset} disabled={rolling || drawn === 0} data-testid="reset">
+          {t.draw.reset}
+        </button>
+        <button class="link" onclick={() => (showBoard = !showBoard)}>{t.draw.board}</button>
+        <button class="link" onclick={() => (dark = !dark)} data-testid="toggle-dark">
+          {t.draw.light}
+        </button>
+        <button class="link" onclick={toggleFullscreen}>{t.draw.fullscreen}</button>
+        <button class="link" onclick={onExit} data-testid="exit">{t.draw.exit}</button>
       </span>
     </div>
   {/if}
@@ -238,10 +244,10 @@
 
 <style>
   /*
-   * Andere Anforderungen als der Generator: Das läuft projiziert in einem oft
-   * abgedunkelten Saal. Dunkler Grund blendet nicht und lässt die Zahl leuchten
-   * — deshalb hier bewusst eine Ausnahme vom Papierton, umschaltbar für helle
-   * Räume.
+   * Different requirements from the generator: this is projected into a room
+   * that is often dimmed. A dark ground does not glare and lets the number
+   * glow — a deliberate exception to the paper palette, toggleable for bright
+   * rooms.
    */
   .stage {
     position: fixed;
@@ -326,7 +332,7 @@
     opacity: 0.35;
   }
 
-  /* Die zuletzt gezogenen Zahlen verblassen nach hinten. */
+  /* The most recent numbers fade towards the back. */
   .recent span:nth-child(2) {
     opacity: 0.75;
   }

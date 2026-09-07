@@ -3,11 +3,11 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [svelte()],
-  // Relative Pfade, damit das Ergebnis auch unter einem Unterpfad laeuft
-  // (GitHub Pages liefert unter /<repo>/ aus).
+  // Relative paths, so the build also works under a sub-path (GitHub Pages
+  // serves from /<repo>/).
   base: './',
   build: { outDir: 'dist', emptyOutDir: true },
   server: { port: 5173 },
-  // Vitest deckt src/ ab; e2e/ laeuft ueber Playwright.
+  // Vitest covers src/; e2e/ runs through Playwright.
   test: { include: ['src/**/*.test.ts'] },
 })

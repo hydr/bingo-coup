@@ -2,159 +2,194 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Projekt
+## Project
 
-**Bingo Coup** — Bingo, bei dem **alle Gäste gleichzeitig gewinnen**: Die Ziehungsreihenfolge ist
-vorbestimmt, und jede Karte ist so konstruiert, dass sie genau bei einer
-bestimmten Ziehung Bingo hat — bei derselben für alle.
+**Bingo Coup** — bingo where **every guest wins at the same moment**: the draw
+order is predetermined, and every card is built to have bingo on one particular
+draw, the same one for all of them.
 
-Ziel ist eine statische Website (Generator, Druckansicht, Beamer-Ziehungsapp).
-Plan: [docs/roadmap.md](docs/roadmap.md), Vermarktung: [docs/publikation.md](docs/publikation.md).
+Live at https://hydr.github.io/bingo-coup/, deployed by GitHub Pages from
+`.github/workflows/ci.yml`. Plan: [docs/roadmap.md](docs/roadmap.md),
+positioning: [docs/publication.md](docs/publication.md).
 
-`Bingo.py` ist der Python-2-Prototyp von 2011 und liegt als Referenz unverändert
-im Repo. **Nicht anfassen und nicht portieren** — die Logik ist in `src/core/`
-neu gebaut.
+`Bingo.py` is the Python 2 prototype from 2011 and stays in the repository
+untouched as a reference. **Do not touch it and do not port it** — the logic has
+been rebuilt in `src/core/`.
 
-## Befehle
+## Commands
 
 ```bash
-npm run dev                     # Website, http://localhost:5173
-npm test                        # Vitest: Logik (91 Tests)
-npm run test:e2e                # Playwright: Oberfläche (17 Tests)
+npm run dev                     # site at http://localhost:5173
+npm test                        # Vitest: logic (92 tests)
+npm run test:e2e                # Playwright: interface (21 tests)
 npm run typecheck               # tsc + svelte-check
-npx vitest run -t "Tarnung"     # einzelne Testgruppe
-npm run demo 60 25              # Spielplan im Terminal ansehen
-npm run range                   # welche Gewinnzeitpunkte tragen 80 Gäste?
-npm run feasibility             # Konstruktion vs. Auswahl (langsam)
+npx vitest run -t "camouflage"  # a single group
+npm run demo 60 25              # a plan in the terminal
+npm run range                   # which win times carry 80 guests?
+npm run feasibility             # construction vs. selection (slow)
 ```
 
-`npm run test:e2e` baut selbst und startet `vite preview` auf Port 4173 — getestet
-wird die Produktionsausgabe, nicht der Dev-Server. `vite preview` braucht dabei
-zwingend `--host`, sonst lauscht es nicht auf 127.0.0.1 und Playwright wartet
-ins Leere.
+`npm run test:e2e` builds and starts `vite preview` on port 4173 itself, so what
+gets tested is the production output rather than the dev server. Two traps to
+know about:
 
-## Architektur
+- `vite preview` needs `--host`, otherwise it does not bind 127.0.0.1 and
+  Playwright waits out its timeout.
+- `reuseExistingServer` is deliberately `false`. With it on, a preview server
+  left running from something else skips the build, and the whole suite passes
+  green against a stale bundle. That happened twice. If port 4173 is occupied,
+  Playwright now refuses to start rather than testing old code; free it with
+  `Get-NetTCPConnection -LocalPort 4173 -State Listen` and `Stop-Process`.
 
-Statische Website: Vite, Svelte 5, kein Backend. `src/core/` ist reines
-TypeScript ohne Abhängigkeiten und ohne DOM-Zugriff, `src/ui/` die Oberfläche
-darüber. Die Trennung ist wichtig — der Kern darf nie etwas über das DOM
-wissen, damit die Terminal-Skripte in `scripts/` weiter funktionieren.
+## Architecture
 
-- `types.ts` — Datenmodell und die Regelsätze `CLASSIC` / `OPEN_80` / `KIDS_3X3`
-- `rules.ts` — Linien, Spaltenbereiche, freies Feld; `lines()` ist gecacht
-- `card.ts` — Trefferbild und `winIndexOf()`: bei welcher Ziehung eine Karte gewinnt
+A static site: Vite, Svelte 5, no backend. `src/core/` is plain TypeScript with
+no dependencies and no DOM access, `src/ui/` the interface on top. That split
+matters — the core must never know anything about the DOM, so the terminal
+scripts in `scripts/` keep working.
+
+- `types.ts` — data model and the rulesets `CLASSIC` / `OPEN_80` / `KIDS_3X3`
+- `rules.ts` — lines, column ranges, free centre; `lines()` is cached
+- `card.ts` — hit pattern and `winIndexOf()`: the draw a card wins on
 - `generator.ts` — `buildCard()`, `generatePlan()`, `randomCard()`
-- `rng.ts` — seed-basiert; gleicher Seed muss exakt denselben Plan liefern
+- `rng.ts` — seeded; the same seed must return exactly the same plan
 
-### Zwei Dinge, die man wissen muss
+### Two things worth knowing
 
-**Eine Zelle trägt ein `Item`, keine Zahl.** Die Gewinnlogik arbeitet
-ausschließlich auf Positionen und Ziehungsindizes und darf nie auf `label`
-schauen. Das trennt Darstellung von Logik und hält den Kern für andere
-Regelsätze offen. Beschriftungen frei zu setzen ist damit technisch möglich
-(`generatePlan({ items })`), ist aber **kein Produktziel** — die Oberfläche
-kennt nur Zahlen-Bingo.
+**A cell carries an `Item`, not a number.** The win logic works purely on
+positions and draw indices and must never look at `label`. That keeps display
+and logic apart and leaves the core open to other rulesets. Setting labels
+freely is therefore technically possible (`generatePlan({ items })`) but is
+**not a product goal** — the interface only ever offers numbers.
 
-**`buildCard` baut in drei Schritten**: Gewinnlinie mit früh gezogenen Elementen
-füllen, dann für jedes übrige Feld entscheiden „früh oder spät" (`Slot`-Maske),
-dann konkrete Elemente zuweisen. Der Kern ist `repairSlots`: Jede fremde Linie
-braucht mindestens ein spät gezogenes Feld, sonst entsteht ein verfrühtes Bingo.
-`balanceAgainstSupply` gleicht die Maske danach an den Vorrat je Spalte ab und
-muss `repairSlots` erneut auslösen.
+**`buildCard` works in three steps**: fill the winning line with items drawn
+early, then decide "early or late" for every remaining square (the `Slot`
+mask), then assign concrete items. The heart of it is `repairSlots`: every
+foreign line needs at least one late square, otherwise there is a premature
+bingo. `balanceAgainstSupply` then reconciles the mask with what is left per
+column and has to trigger `repairSlots` again.
 
-### Oberfläche
+### Invariants
 
-- `src/ui/App.svelte` — Landingpage, Generator und Probelauf in einem
-- `src/ui/lib/BingoCard.svelte` — eine Karte; `brand={null}` ist der Standard
-- `src/ui/lib/HostSheet.svelte` — Moderatorenblatt mit Regieanweisung
-- `src/ui/lib/DrawApp.svelte` — Ziehungsapp für den Beamer
-- `src/ui/lib/planParams.ts` — Plan in der Adresszeile, Regelsatz-Auswahl
+These promises must not break; all of them are tested:
 
-### Die Ziehungsapp
+1. Every card wins on exactly `winAt` — no line completes earlier.
+2. No number twice on a card, each within its column range.
+3. The same seed produces an identical plan.
+4. The hit pattern matches that of honest winning cards (see below).
 
-Erreichbar über `#draw?g=…&w=…&s=…&r=…`. Der Plan steckt vollständig in diesen
-vier Werten, weil der Seed alles bestimmt — dadurch lässt sich der Link auf das
-Gerät am Beamer schicken und zeigt dort garantiert dieselbe Ziehung wie der
-Ausdruck. Genau das prüft der wichtigste E2E-Test („stimmt mit dem
-Moderatorenblatt überein"); bricht er, passen Karten und Ziehung nicht mehr
-zusammen und der ganze Abend wäre hin.
+`buildCard` verifies every card independently with `winIndexOf` before returning
+it and discards it on a mismatch. Do not remove that safety belt — it is why a
+bug in the mask logic cannot end up on printed paper.
 
-Vier Dinge, die dort absichtlich so sind:
+### Camouflage
 
-1. **Dunkler Grund.** Bewusste Ausnahme vom Papierton: Das läuft projiziert in
-   einem oft abgedunkelten Saal. Umschaltbar für helle Räume.
-2. **Der Regiehinweis ist klein und gedeckt.** Der Moderator liest ihn am
-   Rechner, auf der Projektion aus zehn Metern ist er unlesbar. Er darf den
-   Gästen nichts verraten — deshalb steht dort auch sonst nichts über den Trick.
-3. **Ein Klick während des Trommelwirbels kürzt ihn ab**, statt zu verpuffen.
-   Vorher war der Knopf gesperrt und Nachklicken verschluckte den Klick.
-4. **Planwechsel baut die Komponente neu auf** (`{#key drawHash(params)}` in
-   `App.svelte`). Ohne das behält die Ziehung ihren Zählerstand, und wer den
-   Seed ändert, stünde mitten in einer Ziehung, die zu seinen frisch gedruckten
-   Karten nicht passt.
+The cards must not look prepared — guests glance at their neighbour's sheet. So
+`naturalLook` scatters hits outside the winning line.
 
-Svelte 5 mit Runes (`$state`, `$derived`, `$effect`). Die Bildschirmansicht und
-die Druckfassung stehen **beide** im DOM und tragen dieselben `data-testid` —
-die Druckfassung liegt in `.print-only`, das nur `@media print` sichtbar wird.
-In Tests deshalb immer über `getByRole('main')` bzw. `.print-only` eingrenzen,
-sonst schlägt Playwrights strict mode zu.
+The yardstick is not any old card but an **honest card that happens to win on
+`winAt`**; such a card has systematically more hits than average. The test
+measures that reference at runtime via `randomCard` and rejection sampling
+rather than estimating it. Anyone changing `naturalLook` checks against that
+reference, not against a rule of thumb.
 
-Gedruckt wird über Druck-CSS, nicht über eine PDF-Bibliothek: gestochen scharfe
-Vektorschrift, dasselbe Layout wie in der Vorschau, kein zusätzlicher Code. Vier
-Karten je A4-Seite, das Moderatorenblatt auf einer eigenen Seite.
+### Measured limits
 
-Zwei Dinge, die auf dem Papier zählen und leicht kaputtgehen:
+With `generatePlan` reshuffling the draw order, every win time from 5 to 65
+carries a room of 80 guests in under 30 ms. Feasibility is therefore **not** a
+constraint — the sensible range follows from the drama, not the combinatorics.
 
-1. **Gedruckte Karten sind leer.** Die Druckfassung rendert mit `drawn={0}`.
-   Einzige markierte Zelle je Karte ist das freie Mittelfeld — das gilt per
-   Definition immer als getroffen (`positionOf(null)` gibt `-1` zurück).
-2. **Kein Aufdruck.** `brand` bleibt standardmäßig `null`. Der Produktname auf
-   dem Tisch würde die Überraschung verraten.
+A single draw order does not carry every win time, though: with early win times
+a whole B-I-N-G-O column can go unseen in the first draws, leaving no winning
+line to fill. `generatePlan` reshuffles in that case; `buildCard` on its own can
+fail. The earliest possible win comes from `earliestWinNumber()` — 4 for
+CLASSIC, because a line through the free centre needs only four real squares.
 
-### Vorsicht bei Parametern aus der Adresszeile
+## Interface
 
-`Number(null)` ist `0`, nicht `NaN` — ein fehlender Parameter rutschte damit als
-0 durch, statt den Standard zu nehmen, und die Seite startete ohne Adresszusatz
-mit einem Gast und Gewinn bei Ziehung 1, also im Fehlerzustand. `clampInt` in
-`planParams.ts` fängt das ab, `planParams.test.ts` hält es fest.
+- `src/ui/App.svelte` — landing page, generator and dry run in one
+- `src/ui/lib/BingoCard.svelte` — one card; `brand={null}` is the default
+- `src/ui/lib/HostSheet.svelte` — host sheet with the cue
+- `src/ui/lib/DrawApp.svelte` — the projector draw app
+- `src/ui/lib/planParams.ts` — the plan in the address bar, ruleset choice
+- `src/ui/i18n/` — German and English messages
 
-### Invarianten
+Svelte 5 with runes (`$state`, `$derived`, `$effect`). The screen view and the
+print view **both** live in the DOM and carry the same `data-testid` — the print
+view sits in `.print-only`, which only becomes visible under `@media print`. So
+always scope tests with `getByRole('main')` or `.print-only`, otherwise
+Playwright's strict mode complains.
 
-Diese Zusagen dürfen nicht brechen; alle sind getestet:
+Printing goes through print CSS rather than a PDF library: sharp vector type,
+the same layout as the preview, no extra code. Four cards per A4 page, the host
+sheet on a page of its own.
 
-1. Jede Karte gewinnt bei genau `winAt` — keine Linie wird vorher vollständig.
-2. Keine Zahl doppelt auf einer Karte, jede im Bereich ihrer Spalte.
-3. Gleicher Seed → identischer Plan.
-4. Das Trefferbild gleicht dem echter Gewinnerkarten (siehe unten).
+Two things that matter on paper and break easily:
 
-`buildCard` rechnet jede Karte am Ende unabhängig mit `winIndexOf` nach und
-verwirft sie bei Abweichung. Diesen Sicherheitsgurt nicht entfernen — er ist der
-Grund, warum ein Fehler in der Maskenlogik nicht auf gedrucktem Papier landet.
+1. **Printed cards are blank.** The print view renders with `drawn={0}`. The
+   only marked square per card is the free centre — it counts as hit by
+   definition (`positionOf(null)` returns `-1`).
+2. **No imprint.** `brand` stays `null` by default. The product name on the
+   table would give the surprise away.
 
-### Tarnung
+### Language
 
-Die Karten dürfen nicht präpariert aussehen — Gäste schauen auf den Zettel des
-Nachbarn. Deshalb streut `naturalLook` Treffer außerhalb der Gewinnlinie ein.
+Two locales, `src/ui/i18n/`. `en.ts` is the source of truth: `Messages` is
+derived from it and `de.ts` has to `satisfies` that type, so a missing key is a
+compile error. Interpolation uses plain functions rather than placeholder
+strings, so the compiler checks every argument.
 
-Der Maßstab dafür ist nicht eine beliebige Karte, sondern eine **ehrliche Karte,
-die zufällig bei `winAt` gewinnt**; die hat systematisch mehr Treffer als der
-Durchschnitt. Der Test misst diese Referenz zur Laufzeit per `randomCard` und
-Rejection Sampling, statt sie zu schätzen. Wer an `naturalLook` etwas ändert,
-prüft gegen diese Referenz, nicht gegen eine Faustregel.
+Note that `en.ts` deliberately has no `as const` — with it, every string would
+become a literal type that no translation could satisfy.
 
-### Gemessene Grenzen
+Choice of language: `?lang=` in the address wins, then `localStorage`, then the
+browser's setting, falling back to German. `persistLocale` writes the choice
+into the address so a reload keeps it, and sets `<html lang>`.
 
-Mit Neu-Mischen der Ziehungsreihenfolge in `generatePlan` tragen alle
-Gewinnzeitpunkte von 5 bis 65 einen Saal mit 80 Gästen, in unter 30 ms. Die
-Machbarkeit ist damit **kein Engpass** — der sinnvolle Bereich ergibt sich aus
-der Dramaturgie, nicht aus der Kombinatorik.
+**Every E2E test has to pin the language** (`/?lang=en`). Without that the tests
+depend on the browser's locale and would disagree between machines.
 
-Eine einzelne Ziehungsreihenfolge trägt aber nicht jeden Gewinnzeitpunkt: Bei
-frühen Zeitpunkten kann ein B-I-N-G-O-Block in den ersten Ziehungen leer
-ausgehen, dann ist keine Gewinnlinie mehr füllbar. `generatePlan` mischt in
-diesem Fall neu; `buildCard` allein kann scheitern.
+### Errors from the core
 
-## Sprache
+`GenerationError` carries a `code` (`too-early`, `impossible`,
+`pool-too-small`, `out-of-range`) alongside its message. The core's messages
+stay technical and English — they talk about draw orders and attempt counts,
+which is the wrong register for somebody planning a party. `describe()` in
+`App.svelte` turns the code into a translated sentence. New error cases need a
+code, or the interface cannot translate them.
 
-Code-Bezeichner englisch, Kommentare und Dokumentation deutsch. Umlaute in
-Quelltext-Kommentaren umschrieben (`ue`), in Markdown-Dateien ausgeschrieben.
+### Careful with parameters from the address bar
+
+`Number(null)` is `0`, not `NaN` — a missing parameter therefore slipped through
+as zero instead of falling back, and the page without an address suffix started
+with one guest and a win on draw 1, that is, in an error state. `clampInt` in
+`planParams.ts` guards against it and `planParams.test.ts` pins it down.
+
+### The draw app
+
+Reachable at `#draw?g=…&w=…&s=…&r=…`. The plan sits entirely in those four
+values because the seed determines everything, which is what lets the link be
+sent to the machine at the projector and show exactly the draw that is on the
+printout. That is what the most important E2E test checks ("the draw matches the
+host sheet"); if it breaks, cards and draw order have drifted apart and the
+whole evening would be lost.
+
+Four things there are deliberate:
+
+1. **The dark ground.** A deliberate exception to the paper palette: this is
+   projected into a room that is often dimmed. Toggleable for bright rooms.
+2. **The host cue is small and muted.** The host reads it at the machine; from
+   ten metres on the projection it is illegible. It must not give the guests
+   anything away — which is also why nothing else on that screen hints at the
+   trick.
+3. **A click during the drum roll shortens it** instead of being swallowed.
+   The button used to be disabled, so clicking again lost the click.
+4. **Changing the plan rebuilds the component** (`{#key drawHash(params)}` in
+   `App.svelte`). Without it the draw keeps its counter, and anyone changing the
+   seed would stand in the middle of a draw that no longer matches their freshly
+   printed cards.
+
+## Language of the source
+
+Identifiers, comments and documentation are English. The interface is
+translated; German lives in `src/ui/i18n/de.ts` and nowhere else.

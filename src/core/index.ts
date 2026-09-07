@@ -29,9 +29,12 @@ export {
 
 export {
   buildCard,
+  earliestWinNumber,
   generatePlan,
   GenerationError,
   randomCard,
+  shortestLine,
   type CardOptions,
+  type GenerationErrorCode,
   type PlanOptions,
 } from './generator.js'

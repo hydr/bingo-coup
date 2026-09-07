@@ -107,7 +107,7 @@ Referenz für die Tests und für den Modus „normales Bingo".
   scharfe Vektorschrift, dasselbe Layout wie in der Vorschau, kein zusätzlicher
   Code. Der Nutzer druckt aus dem Browser nach PDF.
 
-## Phase 3 — Website — Generator steht, Ziehungsapp fehlt
+## Phase 3 — Website ✅ erledigt bis auf Begriffe-Bingo
 
 Drei Bestandteile, alle statisch:
 
@@ -117,10 +117,11 @@ Drei Bestandteile, alle statisch:
    Ziehung, der live mitzählt, wie viele Karten Bingo haben. Bis zur vorletzten
    Zahl null, dann alle — das überzeugt schneller als jeder Erklärtext und ist
    gleichzeitig die beste Kontrolle vor dem Drucken.
-3. ⬜ **Ziehungsapp für den Beamer**: zieht scheinbar zufällig, mit Animation und
-   Trommelwirbel, spielt in Wahrheit die feste Liste ab. Macht das Produkt erst
-   rund — der Gastgeber kann nichts falsch machen, es gibt keine Ableseshow, und
-   niemand hinterfragt die Reihenfolge.
+3. ✅ **Ziehungsapp für den Beamer**: große Zahl auf dunklem Grund,
+   Trommelwirbel, Tafel mit allen gezogenen Zahlen, Vollbild, Tastatursteuerung.
+   Der Plan steckt im Link, sodass das Gerät am Beamer garantiert dieselbe
+   Reihenfolge zeigt wie der Ausdruck. Der Regiehinweis für den Moderator ist
+   klein und gedeckt — am Rechner lesbar, auf der Projektion nicht.
 4. ⬜ **Begriffe-Bingo in der Oberfläche.** Der Kern kann es längst und es ist
    getestet; es fehlt nur die Eingabemaske für die Begriffe.
 
@@ -133,8 +134,8 @@ Siehe [publikation.md](publikation.md).
 
 ## Weiterhin offen
 
-- Whitelabel für die Karten ist erledigt (Aufdruck standardmäßig aus); für die
-  Ziehungsapp steht es noch aus.
+- Whitelabel ist erledigt: Der Aufdruck auf den Karten ist standardmäßig aus,
+  und die Ziehungsapp zeigt den Produktnamen nirgends.
 - Domain sichern: `bingocoup.de` und `coupbingo.com` sahen im DNS-Check frei
   aus. **Das Markenregister ist nicht geprüft** — siehe publikation.md.
 - Hosting: GitHub Pages, Netlify oder Vercel

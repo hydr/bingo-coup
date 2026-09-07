@@ -17,8 +17,9 @@ etwas, das ohnehin für alle da ist.
 
 ## Stand
 
-Kern, Generator-Oberfläche und Druckausgabe stehen. Es fehlt die Ziehungsapp
-für den Beamer — siehe [docs/roadmap.md](docs/roadmap.md).
+Vollständig benutzbar: Generator, Druckausgabe und Ziehungsapp für den Beamer.
+Offen ist Begriffe-Bingo in der Oberfläche — siehe
+[docs/roadmap.md](docs/roadmap.md).
 
 ## Ausprobieren
 
@@ -30,9 +31,17 @@ npm run dev        # Website unter http://localhost:5173
 Im Probelauf zieht man den Regler durch die Ziehung und sieht, wie bis zur
 vorletzten Zahl niemand Bingo hat — und dann alle auf einmal.
 
+Für den Abend selbst führt „Ziehung am Beamer starten" in die Vollbildansicht:
+große Zahl, Trommelwirbel, Tafel mit allen gezogenen Zahlen. Der Link dorthin
+enthält den ganzen Plan — man kann ihn auf das Gerät am Beamer schicken und
+bekommt dort garantiert dieselbe Reihenfolge wie auf dem Ausdruck.
+
+Bedienung: Leertaste oder Klick zieht, Pfeil links nimmt zurück, `F` schaltet
+Vollbild, `Esc` führt zurück zum Generator.
+
 ```bash
-npm test           # 80 Unit-Tests der Gewinnlogik
-npm run test:e2e   # 9 Playwright-Tests der Oberfläche
+npm test           # 91 Unit-Tests
+npm run test:e2e   # 17 Playwright-Tests der Oberfläche
 npm run demo 60 25 # Spielplan im Terminal, ohne Browser
 npm run range      # welche Gewinnzeitpunkte tragen 80 Gäste?
 ```

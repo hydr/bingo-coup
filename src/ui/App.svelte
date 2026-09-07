@@ -1,26 +1,54 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { drawPositions, winIndexOf } from '../core/card.js'
   import { generatePlan } from '../core/generator.js'
   import { lines } from '../core/rules.js'
-  import { CLASSIC, KIDS_3X3, OPEN_80, type Ruleset } from '../core/types.js'
   import BingoCard from './lib/BingoCard.svelte'
+  import DrawApp from './lib/DrawApp.svelte'
   import HostSheet from './lib/HostSheet.svelte'
+  import { drawHash, readParams, RULESETS, rulesetOf } from './lib/planParams.js'
 
-  const RULESETS: Record<string, { label: string; ruleset: Ruleset }> = {
-    classic: { label: 'Klassisch — 5×5, 1–75, freies Mittelfeld', ruleset: CLASSIC },
-    open80: { label: 'Offen — 5×5, 1–80, alle Felder', ruleset: OPEN_80 },
-    kids: { label: 'Kinder — 3×3, 1–30', ruleset: KIDS_3X3 },
-  }
+  // Der Einstieg kommt aus der Adresszeile, damit ein geteilter Link auf dem
+  // Gerät am Beamer denselben Plan zeigt.
+  const initial = readParams(location.hash)
 
-  let guests = $state(60)
+  let view = $state(initial.view)
+  let guests = $state(initial.params.guests)
   /** 1-basiert, so wie ein Mensch zählt. Der Kern rechnet 0-basiert. */
-  let winNumber = $state(26)
-  let seed = $state(20260907)
-  let rulesetKey = $state('classic')
+  let winNumber = $state(initial.params.winNumber)
+  let seed = $state(initial.params.seed)
+  let rulesetKey = $state(initial.params.rulesetKey)
   let showBrand = $state(false)
   let previewCount = $state(8)
 
-  const ruleset = $derived(RULESETS[rulesetKey]!.ruleset)
+  const ruleset = $derived(rulesetOf(rulesetKey))
+  const params = $derived({ guests, winNumber, seed, rulesetKey })
+
+  // Vor- und Zurück-Taste des Browsers sollen zwischen den Ansichten wirken.
+  onMount(() => {
+    const sync = () => {
+      const next = readParams(location.hash)
+      view = next.view
+      if (next.view === 'draw') {
+        guests = next.params.guests
+        winNumber = next.params.winNumber
+        seed = next.params.seed
+        rulesetKey = next.params.rulesetKey
+      }
+    }
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  })
+
+  function startDraw() {
+    location.hash = drawHash(params)
+    view = 'draw'
+  }
+
+  function leaveDraw() {
+    history.pushState(null, '', location.pathname + location.search)
+    view = 'generator'
+  }
 
   const result = $derived.by(() => {
     try {
@@ -64,6 +92,16 @@
   }
 </script>
 
+{#if view === 'draw'}
+  <!--
+    Der Schluessel erzwingt einen Neuaufbau, sobald sich der Plan aendert.
+    Ohne ihn behaelt die Ziehung ihren Zaehlerstand: Wer im Generator den Seed
+    aendert und neu startet, stuende mitten in einer fremden Ziehung.
+  -->
+  {#key drawHash(params)}
+    <DrawApp params={params} onExit={leaveDraw} />
+  {/key}
+{:else}
 <header class="hero no-print">
   <div class="wrap">
     <p class="eyebrow">Bingo Coup</p>
@@ -118,6 +156,9 @@
       <button onclick={() => window.print()} disabled={!plan} data-testid="print">
         Karten und Moderatorenblatt drucken
       </button>
+      <button class="ghost" onclick={startDraw} disabled={!plan} data-testid="start-draw">
+        Ziehung am Beamer starten
+      </button>
       <label class="inline">
         <input type="checkbox" bind:checked={showBrand} data-testid="brand-toggle" />
         Aufdruck „Bingo Coup" auf den Karten
@@ -128,6 +169,12 @@
       Der Seed macht den Plan reproduzierbar: Geht der Ausdruck verloren, liefert
       derselbe Seed exakt dieselben Karten. Der Aufdruck bleibt standardmäßig weg —
       auf dem Tisch würde er die Überraschung verraten.
+    </p>
+
+    <p class="small muted hint">
+      Die Ziehung läuft im Browser und übernimmt das Vorlesen. Der Link dorthin
+      enthält den Plan — du kannst ihn auf das Gerät schicken, das am Beamer hängt,
+      und bekommst dort garantiert dieselbe Reihenfolge wie auf dem Ausdruck.
     </p>
 
     {#if result.error}
@@ -252,6 +299,7 @@
     </div>
     <HostSheet {plan} {guests} />
   </div>
+{/if}
 {/if}
 
 <style>

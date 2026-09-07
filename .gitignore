@@ -9,4 +9,5 @@ playwright-report/
 .playwright-mcp/
 
 # Screenshots aus Browser-Sitzungen
-bingo-coup-*.png
+*.png
+!public/**/*.png

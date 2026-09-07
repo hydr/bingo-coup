@@ -45,6 +45,15 @@ test('die Seite lädt ohne Konsolenfehler', async ({ page }) => {
   await page.reload()
   await expect(page.getByRole('heading', { level: 1 })).toContainText('alle gleichzeitig gewinnen')
   expect(errors).toEqual([])
+
+  // Ohne Parameter in der Adresszeile muss die Seite mit brauchbaren Werten
+  // starten und einen fertigen Plan zeigen — nicht mit einer Fehlermeldung.
+  await expect(page.getByTestId('error')).toHaveCount(0)
+  await expect(page.getByTestId('guests')).toHaveValue('60')
+  await expect(page.getByTestId('win-number')).toHaveValue('26')
+  await expect(page.getByTestId('print')).toBeEnabled()
+  await expect(page.getByTestId('start-draw')).toBeEnabled()
+  await expect(onScreen(page).getByTestId('host-sheet')).toBeVisible()
 })
 
 test('niemand gewinnt vorher, dann alle gleichzeitig', async ({ page }) => {

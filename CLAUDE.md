@@ -19,8 +19,8 @@ neu gebaut.
 
 ```bash
 npm run dev                     # Website, http://localhost:5173
-npm test                        # Vitest: Gewinnlogik (80 Tests)
-npm run test:e2e                # Playwright: Oberfläche (9 Tests)
+npm test                        # Vitest: Logik (91 Tests)
+npm run test:e2e                # Playwright: Oberfläche (17 Tests)
 npm run typecheck               # tsc + svelte-check
 npx vitest run -t "Tarnung"     # einzelne Testgruppe
 npm run demo 60 25              # Spielplan im Terminal ansehen
@@ -64,6 +64,31 @@ muss `repairSlots` erneut auslösen.
 - `src/ui/App.svelte` — Landingpage, Generator und Probelauf in einem
 - `src/ui/lib/BingoCard.svelte` — eine Karte; `brand={null}` ist der Standard
 - `src/ui/lib/HostSheet.svelte` — Moderatorenblatt mit Regieanweisung
+- `src/ui/lib/DrawApp.svelte` — Ziehungsapp für den Beamer
+- `src/ui/lib/planParams.ts` — Plan in der Adresszeile, Regelsatz-Auswahl
+
+### Die Ziehungsapp
+
+Erreichbar über `#draw?g=…&w=…&s=…&r=…`. Der Plan steckt vollständig in diesen
+vier Werten, weil der Seed alles bestimmt — dadurch lässt sich der Link auf das
+Gerät am Beamer schicken und zeigt dort garantiert dieselbe Ziehung wie der
+Ausdruck. Genau das prüft der wichtigste E2E-Test („stimmt mit dem
+Moderatorenblatt überein"); bricht er, passen Karten und Ziehung nicht mehr
+zusammen und der ganze Abend wäre hin.
+
+Vier Dinge, die dort absichtlich so sind:
+
+1. **Dunkler Grund.** Bewusste Ausnahme vom Papierton: Das läuft projiziert in
+   einem oft abgedunkelten Saal. Umschaltbar für helle Räume.
+2. **Der Regiehinweis ist klein und gedeckt.** Der Moderator liest ihn am
+   Rechner, auf der Projektion aus zehn Metern ist er unlesbar. Er darf den
+   Gästen nichts verraten — deshalb steht dort auch sonst nichts über den Trick.
+3. **Ein Klick während des Trommelwirbels kürzt ihn ab**, statt zu verpuffen.
+   Vorher war der Knopf gesperrt und Nachklicken verschluckte den Klick.
+4. **Planwechsel baut die Komponente neu auf** (`{#key drawHash(params)}` in
+   `App.svelte`). Ohne das behält die Ziehung ihren Zählerstand, und wer den
+   Seed ändert, stünde mitten in einer Ziehung, die zu seinen frisch gedruckten
+   Karten nicht passt.
 
 Svelte 5 mit Runes (`$state`, `$derived`, `$effect`). Die Bildschirmansicht und
 die Druckfassung stehen **beide** im DOM und tragen dieselben `data-testid` —
@@ -82,6 +107,13 @@ Zwei Dinge, die auf dem Papier zählen und leicht kaputtgehen:
    Definition immer als getroffen (`positionOf(null)` gibt `-1` zurück).
 2. **Kein Aufdruck.** `brand` bleibt standardmäßig `null`. Der Produktname auf
    dem Tisch würde die Überraschung verraten.
+
+### Vorsicht bei Parametern aus der Adresszeile
+
+`Number(null)` ist `0`, nicht `NaN` — ein fehlender Parameter rutschte damit als
+0 durch, statt den Standard zu nehmen, und die Seite startete ohne Adresszusatz
+mit einem Gast und Gewinn bei Ziehung 1, also im Fehlerzustand. `clampInt` in
+`planParams.ts` fängt das ab, `planParams.test.ts` hält es fest.
 
 ### Invarianten
 

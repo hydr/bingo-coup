@@ -250,6 +250,28 @@ describe('failure cases', () => {
     }
   })
 
+  // The guards below exist because the plan came back looking valid without
+  // them: a card count of zero skipped the card loop, and the plan carried a
+  // `winningItem` of `undefined` while its type promised an `Item`.
+  it.each([0, -3, 2.5, Number.NaN])('rejects a card count of %o', (cardCount) => {
+    expect(() => generatePlan({ cardCount, winAt: WIN_AT, seed: 1 })).toThrow(
+      GenerationError,
+    )
+  })
+
+  it.each([-1, 25.5, Number.NaN])('rejects a win time of %o', (winAt) => {
+    expect(() => generatePlan({ cardCount: 2, winAt, seed: 1 })).toThrow(GenerationError)
+  })
+
+  it('reports a win time beyond the last draw', () => {
+    try {
+      generatePlan({ cardCount: 1, winAt: CLASSIC.poolSize, seed: 1 })
+      expect.unreachable('a win time beyond the draw has to fail')
+    } catch (error) {
+      expect((error as GenerationError).code).toBe('out-of-range')
+    }
+  })
+
   it('names the earliest possible win for each ruleset', () => {
     // A line through the free centre needs one real square less, which is what
     // makes an early win possible at all.

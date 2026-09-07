@@ -3,6 +3,7 @@
   import { generatePlan } from '../../core/generator.js'
   import type { Item, Plan } from '../../core/types.js'
   import type { Messages } from '../i18n/index.js'
+  import { describeError } from './describeError.js'
   import { rulesetOf, type PlanParams } from './planParams.js'
 
   interface Props {
@@ -25,7 +26,9 @@
       })
       return { plan, error: null as string | null }
     } catch (error) {
-      return { plan: null as Plan | null, error: (error as Error).message }
+      // Translated, not raw: the core's messages talk about draw orders and
+      // attempt counts, and here they would stand on the projection.
+      return { plan: null as Plan | null, error: describeError(error, t, ruleset) }
     }
   })
 

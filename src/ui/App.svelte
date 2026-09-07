@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { drawPositions, winIndexOf } from '../core/card.js'
-  import { earliestWinNumber, generatePlan, GenerationError } from '../core/generator.js'
+  import { earliestWinNumber, generatePlan } from '../core/generator.js'
+  import { randomSeed } from '../core/rng.js'
   import { lines } from '../core/rules.js'
   import {
     detectLocale,
@@ -11,9 +12,21 @@
     type Locale,
   } from './i18n/index.js'
   import BingoCard from './lib/BingoCard.svelte'
+  import { describeError } from './lib/describeError.js'
   import DrawApp from './lib/DrawApp.svelte'
   import HostSheet from './lib/HostSheet.svelte'
-  import { drawHash, readParams, RULESET_KEYS, rulesetOf } from './lib/planParams.js'
+  import {
+    clampInt,
+    DEFAULT_GUESTS,
+    DEFAULT_SEED,
+    DEFAULT_WIN_NUMBER,
+    drawHash,
+    MAX_GUESTS,
+    MAX_SEED,
+    readParams,
+    RULESET_KEYS,
+    rulesetOf,
+  } from './lib/planParams.js'
 
   // The entry point comes out of the address bar so that a shared link shows
   // the same plan on the machine at the projector.
@@ -31,45 +44,46 @@
 
   const t = $derived(LOCALES[locale])
   const ruleset = $derived(rulesetOf(rulesetKey))
-  const params = $derived({ guests, winNumber, seed, rulesetKey })
   const earliest = $derived(earliestWinNumber(ruleset))
+
+  /**
+   * What actually goes into the generator, and into the link to the draw.
+   *
+   * The input fields cannot be trusted on their own: a cleared number field
+   * hands over `null`, and `max` does not stop anybody typing a larger number.
+   * Both used to reach the generator — `null` produced a plan with no cards and
+   * no error message, and a large guest count rendered that many grids into the
+   * print view and froze the tab.
+   */
+  const cardCount = $derived(clampInt(guests, 1, MAX_GUESTS, DEFAULT_GUESTS))
+  const winAt = $derived(
+    clampInt(winNumber, 1, ruleset.poolSize, DEFAULT_WIN_NUMBER) - 1,
+  )
+  const seedValue = $derived(clampInt(seed, 0, MAX_SEED, DEFAULT_SEED))
+
+  const params = $derived({
+    guests: cardCount,
+    winNumber: winAt + 1,
+    seed: seedValue,
+    rulesetKey,
+  })
 
   const result = $derived.by(() => {
     try {
       const plan = generatePlan({
         ruleset,
-        cardCount: guests,
-        winAt: winNumber - 1,
-        seed,
+        cardCount,
+        winAt,
+        seed: seedValue,
       })
       return { plan, error: null as string | null }
     } catch (error) {
-      return { plan: null, error: describe(error) }
+      return { plan: null, error: describeError(error, t, ruleset) }
     }
   })
 
   const plan = $derived(result.plan)
   const positions = $derived(plan ? drawPositions(plan.drawOrder) : null)
-
-  /**
-   * Turns a core error into something a host can act on. The core's own
-   * messages stay technical and English — they talk about draw orders and
-   * attempt counts, which is the wrong register for somebody planning a party.
-   */
-  function describe(error: unknown): string {
-    if (!(error instanceof GenerationError)) return t.errors.unknown
-    switch (error.code) {
-      case 'too-early':
-        return t.errors.tooEarly(error.earliest ?? earliest)
-      case 'pool-too-small':
-        return t.errors.poolTooSmall
-      case 'out-of-range':
-      case 'impossible':
-        return t.errors.impossible
-      default:
-        return t.errors.unknown
-    }
-  }
 
   /**
    * Where the slider sits. Starts just short of the bingo, because that is the
@@ -79,7 +93,7 @@
 
   // Follow a new plan so the slider never points into nothing.
   $effect(() => {
-    drawn = Math.min(winNumber - 1, ruleset.poolSize)
+    drawn = Math.min(winAt, ruleset.poolSize)
   })
 
   const bingoCount = $derived.by(() => {
@@ -100,7 +114,6 @@
 
   // The browser's back button should move between the views.
   onMount(() => {
-
     const sync = () => {
       const next = readParams(location.hash)
       view = next.view
@@ -131,7 +144,7 @@
   }
 
   function reroll() {
-    seed = Math.floor(Math.random() * 99999999)
+    seed = randomSeed()
   }
 </script>
 
@@ -182,7 +195,7 @@
             id="guests"
             type="number"
             min="1"
-            max="500"
+            max={MAX_GUESTS}
             bind:value={guests}
             data-testid="guests"
           />
@@ -241,7 +254,7 @@
 
       <section>
         <h2>{t.sim.heading}</h2>
-        <p class="lead">{t.sim.lead(winNumber)}</p>
+        <p class="lead">{t.sim.lead(winAt + 1)}</p>
 
         <div class="sim">
           <input
@@ -266,17 +279,17 @@
             <div class:triumph={bingoCount > 0}>
               <span class="readout-label">{t.sim.bingo}</span>
               <strong data-testid="bingo-count">{bingoCount}</strong>
-              <span class="muted">{t.sim.ofCards(guests)}</span>
+              <span class="muted">{t.sim.ofCards(cardCount)}</span>
             </div>
           </div>
 
-          {#if bingoCount === 0 && drawn === winNumber - 1}
+          {#if bingoCount === 0 && drawn === winAt}
             <p class="cue-line" data-testid="cue-line">
-              {t.sim.waiting(guests, plan.winningItem.label)}
+              {t.sim.waiting(cardCount, plan.winningItem.label)}
             </p>
-          {:else if bingoCount === guests && guests > 0}
+          {:else if bingoCount === cardCount}
             <p class="cue-line triumph-line" data-testid="triumph-line">
-              {t.sim.triumph(guests, plan.winningItem.label)}
+              {t.sim.triumph(cardCount, plan.winningItem.label)}
             </p>
           {/if}
         </div>
@@ -315,7 +328,7 @@
       <hr class="rule" />
 
       <section>
-        <HostSheet {plan} {guests} {t} />
+        <HostSheet {plan} guests={cardCount} {t} />
       </section>
 
       <hr class="rule" />
@@ -341,7 +354,7 @@
           />
         {/each}
       </div>
-      <HostSheet {plan} {guests} {t} />
+      <HostSheet {plan} guests={cardCount} {t} />
     </div>
   {/if}
 {/if}

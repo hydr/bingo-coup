@@ -349,6 +349,24 @@ export function generatePlan(options: PlanOptions): Plan {
   const ruleset = options.ruleset ?? CLASSIC
   validateRuleset(ruleset)
 
+  // Check the two numbers before computing with them. Without this, a card
+  // count of zero skipped the card loop and returned a plan whose
+  // `winningItem` was `undefined` despite the type promising an `Item`, and a
+  // fractional win time failed with a `TypeError` deep in the column check
+  // instead of a `GenerationError` the interface can translate.
+  if (!Number.isInteger(options.cardCount) || options.cardCount < 1) {
+    throw new GenerationError(
+      'out-of-range',
+      `Card count has to be a whole number of at least 1, not ${options.cardCount}.`,
+    )
+  }
+  if (!Number.isInteger(options.winAt) || options.winAt < 0) {
+    throw new GenerationError(
+      'out-of-range',
+      `Win time has to be a whole number of at least 0, not ${options.winAt}.`,
+    )
+  }
+
   const earliest = earliestWinNumber(ruleset)
   if (options.winAt + 1 < earliest) {
     // Answer this from the rules rather than by failing 25 shuffles in a row:
@@ -369,6 +387,12 @@ export function generatePlan(options: PlanOptions): Plan {
     throw new GenerationError(
       'pool-too-small',
       `Too few items: ${items.length} for a pool of ${ruleset.poolSize}.`,
+    )
+  }
+  if (options.winAt >= items.length) {
+    throw new GenerationError(
+      'out-of-range',
+      `Win time ${options.winAt} lies outside the draw (0..${items.length - 1}).`,
     )
   }
 

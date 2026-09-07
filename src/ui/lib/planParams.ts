@@ -34,7 +34,27 @@ export function rulesetOf(key: string): Ruleset {
   return isRulesetKey(key) ? RULESETS[key] : CLASSIC
 }
 
-const clampInt = (value: unknown, min: number, max: number, fallback: number): number => {
+/**
+ * The bounds the interface works in. `MAX_GUESTS` is not a matter of taste:
+ * every card also lands in the print view, so a large number turns into a DOM
+ * of that many grids and freezes the tab.
+ */
+export const MAX_GUESTS = 500
+export const DEFAULT_GUESTS = 60
+export const DEFAULT_WIN_NUMBER = 26
+export const DEFAULT_SEED = 20260907
+export const MAX_SEED = 0xffffffff
+
+/**
+ * A whole number inside its bounds, or the fallback. Used for the address bar
+ * and for the input fields, which hand over `null` when they are cleared.
+ */
+export const clampInt = (
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+): number => {
   // Careful: `Number(null)` is 0 and so is `Number('')`. Without this check a
   // missing parameter would pass through as zero instead of falling back — and
   // the page without a hash would start with one guest and a win on draw 1,
@@ -57,9 +77,9 @@ export function readParams(hash: string): { view: 'generator' | 'draw'; params: 
   return {
     view: route === 'draw' ? 'draw' : 'generator',
     params: {
-      guests: clampInt(search.get('g'), 1, 500, 60),
-      winNumber: clampInt(search.get('w'), 1, poolSize, 26),
-      seed: clampInt(search.get('s'), 0, 0xffffffff, 20260907),
+      guests: clampInt(search.get('g'), 1, MAX_GUESTS, DEFAULT_GUESTS),
+      winNumber: clampInt(search.get('w'), 1, poolSize, DEFAULT_WIN_NUMBER),
+      seed: clampInt(search.get('s'), 0, MAX_SEED, DEFAULT_SEED),
       rulesetKey,
     },
   }

@@ -7,6 +7,10 @@ on:
   # Allows a deploy by hand, without a commit.
   workflow_dispatch:
 
+# Read-only by default; the deploy job asks for what it needs itself.
+permissions:
+  contents: read
+
 # One deploy at a time, and never cancel a running one — a half-published site
 # is worse than a slightly stale one.
 concurrency:

@@ -18,18 +18,27 @@ neu gebaut.
 ## Befehle
 
 ```bash
-npm test                        # Vitest, alle Tests
+npm run dev                     # Website, http://localhost:5173
+npm test                        # Vitest: Gewinnlogik (80 Tests)
+npm run test:e2e                # Playwright: Oberfläche (9 Tests)
+npm run typecheck               # tsc + svelte-check
 npx vitest run -t "Tarnung"     # einzelne Testgruppe
-npm run typecheck               # tsc --noEmit
-npx tsx scripts/demo.ts 60 25   # Spielplan im Terminal ansehen
-npx tsx scripts/range.ts        # welche Gewinnzeitpunkte tragen 80 Gäste?
-npx tsx scripts/feasibility.ts  # Konstruktion vs. Auswahl im Vergleich (langsam)
+npm run demo 60 25              # Spielplan im Terminal ansehen
+npm run range                   # welche Gewinnzeitpunkte tragen 80 Gäste?
+npm run feasibility             # Konstruktion vs. Auswahl (langsam)
 ```
+
+`npm run test:e2e` baut selbst und startet `vite preview` auf Port 4173 — getestet
+wird die Produktionsausgabe, nicht der Dev-Server. `vite preview` braucht dabei
+zwingend `--host`, sonst lauscht es nicht auf 127.0.0.1 und Playwright wartet
+ins Leere.
 
 ## Architektur
 
-`src/core/` ist reines TypeScript ohne Abhängigkeiten und ohne DOM-Zugriff —
-alles läuft später im Browser, es gibt kein Backend.
+Statische Website: Vite, Svelte 5, kein Backend. `src/core/` ist reines
+TypeScript ohne Abhängigkeiten und ohne DOM-Zugriff, `src/ui/` die Oberfläche
+darüber. Die Trennung ist wichtig — der Kern darf nie etwas über das DOM
+wissen, damit die Terminal-Skripte in `scripts/` weiter funktionieren.
 
 - `types.ts` — Datenmodell und die Regelsätze `CLASSIC` / `OPEN_80` / `KIDS_3X3`
 - `rules.ts` — Linien, Spaltenbereiche, freies Feld; `lines()` ist gecacht
@@ -49,6 +58,30 @@ dann konkrete Elemente zuweisen. Der Kern ist `repairSlots`: Jede fremde Linie
 braucht mindestens ein spät gezogenes Feld, sonst entsteht ein verfrühtes Bingo.
 `balanceAgainstSupply` gleicht die Maske danach an den Vorrat je Spalte ab und
 muss `repairSlots` erneut auslösen.
+
+### Oberfläche
+
+- `src/ui/App.svelte` — Landingpage, Generator und Probelauf in einem
+- `src/ui/lib/BingoCard.svelte` — eine Karte; `brand={null}` ist der Standard
+- `src/ui/lib/HostSheet.svelte` — Moderatorenblatt mit Regieanweisung
+
+Svelte 5 mit Runes (`$state`, `$derived`, `$effect`). Die Bildschirmansicht und
+die Druckfassung stehen **beide** im DOM und tragen dieselben `data-testid` —
+die Druckfassung liegt in `.print-only`, das nur `@media print` sichtbar wird.
+In Tests deshalb immer über `getByRole('main')` bzw. `.print-only` eingrenzen,
+sonst schlägt Playwrights strict mode zu.
+
+Gedruckt wird über Druck-CSS, nicht über eine PDF-Bibliothek: gestochen scharfe
+Vektorschrift, dasselbe Layout wie in der Vorschau, kein zusätzlicher Code. Vier
+Karten je A4-Seite, das Moderatorenblatt auf einer eigenen Seite.
+
+Zwei Dinge, die auf dem Papier zählen und leicht kaputtgehen:
+
+1. **Gedruckte Karten sind leer.** Die Druckfassung rendert mit `drawn={0}`.
+   Einzige markierte Zelle je Karte ist das freie Mittelfeld — das gilt per
+   Definition immer als getroffen (`positionOf(null)` gibt `-1` zurück).
+2. **Kein Aufdruck.** `brand` bleibt standardmäßig `null`. Der Produktname auf
+   dem Tisch würde die Überraschung verraten.
 
 ### Invarianten
 

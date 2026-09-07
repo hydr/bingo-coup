@@ -17,15 +17,24 @@ etwas, das ohnehin für alle da ist.
 
 ## Stand
 
-Kernlogik und Tests stehen. Die Website mit Generator, Druckansicht und
-Ziehungsapp ist in Arbeit — siehe [docs/roadmap.md](docs/roadmap.md).
+Kern, Generator-Oberfläche und Druckausgabe stehen. Es fehlt die Ziehungsapp
+für den Beamer — siehe [docs/roadmap.md](docs/roadmap.md).
 
 ## Ausprobieren
 
 ```bash
 npm install
-npm test                       # 80 Tests
-npx tsx scripts/demo.ts 60 25  # Spielplan für 60 Gäste, Bingo bei Ziehung 26
+npm run dev        # Website unter http://localhost:5173
+```
+
+Im Probelauf zieht man den Regler durch die Ziehung und sieht, wie bis zur
+vorletzten Zahl niemand Bingo hat — und dann alle auf einmal.
+
+```bash
+npm test           # 80 Unit-Tests der Gewinnlogik
+npm run test:e2e   # 9 Playwright-Tests der Oberfläche
+npm run demo 60 25 # Spielplan im Terminal, ohne Browser
+npm run range      # welche Gewinnzeitpunkte tragen 80 Gäste?
 ```
 
 ## Wie es funktioniert

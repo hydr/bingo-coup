@@ -1,0 +1,362 @@
+/*
+ * Festlich und warm: Serifen, Creme, Gold-Akzent, viel Luft.
+ *
+ * Bewusst nur ein Farbschema. Das Produkt endet auf Papier, und die Oberfläche
+ * soll aussehen wie das, was aus dem Drucker kommt — ein dunkles Thema würde
+ * genau diese Erwartung brechen.
+ */
+:root {
+  color-scheme: light;
+
+  --paper: #fdfaf4;
+  --paper-deep: #f6efe3;
+  --ink: #2b2622;
+  --ink-soft: #6b6156;
+  --ink-faint: #9a8f82;
+  --gold: #a9854e;
+  --gold-soft: #d9c49b;
+  --gold-wash: #f4ead6;
+  --line: #e3d9c8;
+  --hit: #b3452f;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --space: 1rem;
+  --radius: 3px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 400;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: clamp(2.2rem, 6vw, 3.4rem);
+  margin-bottom: 1.6rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+}
+
+p {
+  margin: 0 0 1em;
+}
+
+a {
+  color: var(--gold);
+}
+
+/* --- Bausteine ---------------------------------------------------------- */
+
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 4vw, 2.5rem);
+}
+
+.rule {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 3rem 0;
+}
+
+.eyebrow {
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 0.9rem;
+}
+
+.lead {
+  font-size: 1.2rem;
+  color: var(--ink-soft);
+  max-width: 34em;
+}
+
+.muted {
+  color: var(--ink-soft);
+}
+
+.small {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+}
+
+button {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  padding: 0.6rem 1.3rem;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--gold);
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.ghost {
+  background: transparent;
+  color: var(--gold);
+}
+
+button.ghost:hover:not(:disabled) {
+  background: var(--gold-wash);
+  filter: none;
+}
+
+label {
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.35rem;
+}
+
+input[type='number'],
+input[type='text'],
+select {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+}
+
+/* Der Browser-Default zeichnet einen fast schwarzen Track, der aus dem warmen
+   Papierton herausfaellt. Deshalb selbst gezeichnet. */
+input[type='range'] {
+  width: 100%;
+  appearance: none;
+  height: 2.2rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+input[type='range']::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid var(--paper);
+  box-shadow: 0 1px 3px rgb(43 38 34 / 25%);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid var(--paper);
+}
+
+input[type='range']:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+
+/* --- Bingokarte -------------------------------------------------------- */
+
+.card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  box-shadow: 0 1px 2px rgb(43 38 34 / 6%);
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+  font-family: var(--sans);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.grid {
+  display: grid;
+  gap: 2px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.col-label {
+  background: var(--gold-wash);
+  color: var(--gold);
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+  padding: 0.3rem 0;
+}
+
+.cell {
+  background: #fff;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(0.7rem, 2.2vw, 1rem);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+  padding: 2px;
+  line-height: 1.15;
+  hyphens: auto;
+}
+
+.cell.words {
+  font-family: var(--sans);
+  font-size: 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.cell.free {
+  color: var(--gold);
+  font-size: 0.6rem;
+  font-family: var(--sans);
+  letter-spacing: 0.06em;
+}
+
+/* Getroffene Felder: ein Ring wie mit dem Stift gemalt, kein Vollflächen-Block
+   — die Zahl muss weiter lesbar sein. */
+.cell.hit::after {
+  content: '';
+  position: absolute;
+  inset: 8%;
+  border: 2px solid var(--hit);
+  border-radius: 50%;
+  opacity: 0.75;
+}
+
+.cell.hit {
+  color: var(--hit);
+  font-weight: 600;
+}
+
+.cell.winner {
+  background: var(--gold-wash);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 1.2rem;
+}
+
+/* --- Nur für den Druck ------------------------------------------------- */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff;
+    font-size: 11pt;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Vier Karten je Seite, damit sie ausgeschnitten auf den Tisch passen. */
+  .sheet {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8mm;
+  }
+
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+    border-color: #bbb;
+  }
+
+  .card:nth-child(4n) {
+    break-after: page;
+  }
+
+  .cell.hit::after {
+    display: none;
+  }
+
+  .cell.hit {
+    color: inherit;
+    font-weight: inherit;
+  }
+
+  .host-sheet {
+    break-before: page;
+  }
+}
+
+.print-only {
+  display: none;
+}

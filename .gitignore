@@ -2,3 +2,11 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Playwright
+test-results/
+playwright-report/
+.playwright-mcp/
+
+# Screenshots aus Browser-Sitzungen
+bingo-coup-*.png

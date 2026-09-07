@@ -96,7 +96,7 @@ vergleicht beide Wege. Die Konstruktion gewinnt, weil sie über den gesamten
 Bereich zuverlässig ist und rund tausendmal schneller; `randomCard()` bleibt als
 Referenz für die Tests und für den Modus „normales Bingo".
 
-## Phase 2 — Ausgabe zum Drucken
+## Phase 2 — Ausgabe zum Drucken ✅ erledigt
 
 - Karten, 4 pro A4-Seite, **nummeriert** — damit der Gastgeber weiß, welche
   Karte wohin gehört. Genau daran scheitert es in der Praxis.
@@ -107,18 +107,22 @@ Referenz für die Tests und für den Modus „normales Bingo".
   scharfe Vektorschrift, dasselbe Layout wie in der Vorschau, kein zusätzlicher
   Code. Der Nutzer druckt aus dem Browser nach PDF.
 
-## Phase 3 — Website
+## Phase 3 — Website — Generator steht, Ziehungsapp fehlt
 
 Drei Bestandteile, alle statisch:
 
-1. **Landingpage**, die den Effekt in fünf Sekunden verständlich macht —
-   idealerweise mit laufender Demo statt Erklärtext
-2. **Interaktiver Generator**: Gästezahl, Anlass, Variante, Gewinnzeitpunkt →
-   Live-Vorschau der Karten → Druck
-3. **Ziehungsapp für den Beamer**: zieht scheinbar zufällig, mit Animation und
+1. ✅ **Landingpage**, die den Effekt in fünf Sekunden verständlich macht
+2. ✅ **Interaktiver Generator**: Gästezahl, Gewinnzeitpunkt, Seed, Regelsatz →
+   Live-Vorschau → Druck. Dazu der **Probelauf**: ein Regler durch die ganze
+   Ziehung, der live mitzählt, wie viele Karten Bingo haben. Bis zur vorletzten
+   Zahl null, dann alle — das überzeugt schneller als jeder Erklärtext und ist
+   gleichzeitig die beste Kontrolle vor dem Drucken.
+3. ⬜ **Ziehungsapp für den Beamer**: zieht scheinbar zufällig, mit Animation und
    Trommelwirbel, spielt in Wahrheit die feste Liste ab. Macht das Produkt erst
    rund — der Gastgeber kann nichts falsch machen, es gibt keine Ableseshow, und
    niemand hinterfragt die Reihenfolge.
+4. ⬜ **Begriffe-Bingo in der Oberfläche.** Der Kern kann es längst und es ist
+   getestet; es fehlt nur die Eingabemaske für die Begriffe.
 
 Gestaltung: festlich und warm, Serifenschrift, Creme mit Gold-Akzent, großzügige
 Abstände. Gilt für Website und gedruckte Karten gleichermaßen.
@@ -129,11 +133,11 @@ Siehe [publikation.md](publikation.md).
 
 ## Weiterhin offen
 
-- **Whitelabel-Option** für Karten und Ziehungsapp: Der Name darf vor den Gästen
-  nicht auftauchen, sonst ist die Überraschung hin. Gleichzeitig will kein
-  Gastgeber fremde Werbung auf seiner Hochzeitsdeko — dasselbe Interesse.
+- Whitelabel für die Karten ist erledigt (Aufdruck standardmäßig aus); für die
+  Ziehungsapp steht es noch aus.
 - Domain sichern: `bingocoup.de` und `coupbingo.com` sahen im DNS-Check frei
   aus. **Das Markenregister ist nicht geprüft** — siehe publikation.md.
 - Hosting: GitHub Pages, Netlify oder Vercel
-- Kartengröße 3×3 für Kinder — als spätere Erweiterung offenhalten?
+- Kartengröße 3×3 für Kinder ist als Regelsatz `KIDS_3X3` vorhanden und in der
+  Oberfläche wählbar; ein eigenes Design dafür fehlt noch.
 - Wer produziert das erste Video? Braucht einen echten Anlass.
